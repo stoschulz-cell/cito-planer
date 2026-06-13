@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cito Care - Planer Zentrale</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans p-4 space-y-6">
+
+    <div class="bg-blue-600 p-4 rounded-2xl text-white shadow-md flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-black tracking-wide">Cito Care Zentrale</h1>
+            <p class="text-xs opacity-80">Einsatzplanung & Dokumentation</p>
+        </div>
+        <button onclick="window.terminFreigeben()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl shadow text-sm cursor-pointer">
+            Woche freigeben 🚀
+        </button>
+    </div>
+
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+        <h2 class="text-sm font-black text-gray-700 flex items-center gap-1">📨 Offene Wunschfrei-Anträge (Mitarbeiter)</h2>
+        <div id="antraege-liste" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <p class="text-xs text-gray-400 italic">Keine offenen Anträge vorhanden.</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-4 gap-4">
+        
+        <div class="space-y-4">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Team-Verwaltung</h3>
+                <div class="flex gap-1">
+                    <input type="text" id="ma-name" placeholder="Name..." class="p-2 border rounded-xl text-xs w-full">
+                    <button onclick="window.mitarbeiterAnlegen()" class="bg-blue-600 text-white px-3 py-2 rounded-xl text-xs font-bold cursor-pointer">+</button>
+                </div>
+                <div id="mitarbeiter-liste-sidebar" class="space-y-1 max-h-[200px] overflow-y-auto pr-1"></div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+                <h3 class="text-xs font-bold text-purple-600 uppercase tracking-wider">🔮 Klienten-Wunschpool (Zukunft)</h3>
+                
+                <div class="bg-purple-50 p-2.5 rounded-xl space-y-1.5 text-[11px]">
+                    <input type="text" id="pool-kunde" placeholder="Klient / Kunde..." class="w-full p-1.5 border rounded bg-white">
+                    <input type="date" id="pool-datum" class="w-full p-1.5 border rounded bg-white">
+                    <div class="flex gap-1">
+                        <input type="time" id="pool-von" value="08:00" class="w-full p-1 border rounded bg-white">
+                        <input type="time" id="pool-bis" value="09:00" class="w-full p-1 border rounded bg-white">
+                    </div>
+                    <input type="text" id="pool-notiz" placeholder="Notiz (z.B. Arztbesuch)..." class="w-full p-1.5 border rounded bg-white">
+                    <button onclick="window.poolWunschAnlegen()" class="w-full bg-purple-600 text-white font-bold py-1.5 rounded cursor-pointer">In Pool speichern</button>
+                </div>
+
+                <div id="klienten-pool-liste" class="space-y-2 max-h-[350px] overflow-y-auto pr-1 pt-1">
+                    <p class="text-xs text-gray-400 italic">Der Pool ist leer.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="xl:col-span-3 bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+            
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-2">
+                <div class="flex items-center gap-4">
+                    <button onclick="window.wocheWechseln(-7)" class="p-2 bg-gray-50 hover:bg-gray-100 rounded-xl font-bold text-blue-600 cursor-pointer">◀</button>
+                    <span id="kw-anzeige" class="text-sm font-black text-gray-700">Lade Woche...</span>
+                    <button onclick="window.wocheWechseln(7)" class="p-2 bg-gray-50 hover:bg-gray-100 rounded-xl font-bold text-blue-600 cursor-pointer">▶</button>
+                </div>
+
+                <div class="bg-gray-100 p-1 rounded-xl flex gap-1 self-start">
+                    <button id="tab-plan" onclick="window.setAnsichtsModus('PLAN')" class="px-4 py-2 text-xs font-bold rounded-lg bg-white text-blue-600 shadow-xs cursor-pointer">🗓️ Original (Planung)</button>
+                    <button id="tab-ist" onclick="window.setAnsichtsModus('IST')" class="px-4 py-2 text-xs font-bold rounded-lg text-gray-500 hover:text-gray-700 cursor-pointer">⏱️ Verlauf (Verändert)</button>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-3 rounded-xl grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs items-end">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 mb-0.5">Mitarbeiter</label>
+                    <select id="form-ma" class="p-1.5 border rounded-lg bg-white w-full"></select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 mb-0.5">Kunde</label>
+                    <input type="text" id="form-kunde" placeholder="Name..." class="p-1.5 border rounded-lg bg-white w-full">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 mb-0.5">Datum</label>
+                    <input type="date" id="form-datum" class="p-1.5 border rounded-lg bg-white w-full">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 mb-0.5">Zeit</label>
+                    <div class="flex gap-0.5">
+                        <input type="time" id="form-von" value="08:00" class="p-1 border rounded-lg bg-white w-full">
+                        <input type="time" id="form-bis" value="10:00" class="p-1 border rounded-lg bg-white w-full">
+                    </div>
+                </div>
+                <button onclick="window.terminAnlegen()" class="bg-blue-600 text-white font-bold p-2 rounded-lg text-center w-full cursor-pointer">Einsatz eintragen</button>
+            </div>
+
+            <div class="overflow-x-auto border rounded-xl">
+                <table class="w-full text-left text-xs border-collapse min-w-[1000px]">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-600 border-b">
+                            <th class="p-3 font-bold border-r w-[150px] bg-gray-50 sticky left-0 z-20">Mitarbeiter</th>
+                            <th id="th-mo" class="p-3 border-r text-center">Mo</th>
+                            <th id="th-di" class="p-3 border-r text-center">Di</th>
+                            <th id="th-mi" class="p-3 border-r text-center">Mi</th>
+                            <th id="th-do" class="p-3 border-r text-center">Do</th>
+                            <th id="th-fr" class="p-3 border-r text-center">Fr</th>
+                            <th id="th-sa" class="p-3 border-r text-center">Sa</th>
+                            <th id="th-so" class="p-3 text-center">So</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matrix-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "/api";
+        let fokusDatum = new Date();
+        let ansichtsModus = "PLAN";
+
+        window.setAnsichtsModus = function(modus) {
+            ansichtsModus = modus;
+            const btnPlan = document.getElementById('tab-plan');
+            const btnIst = document.getElementById('tab-ist');
+            if(modus === 'PLAN') {
+                btnPlan.className = "px-4 py-2 text-xs font-bold rounded-lg bg-white text-blue-600 shadow-xs cursor-pointer";
+                btnIst.className = "px-4 py-2 text-xs font-bold rounded-lg text-gray-500 hover:text-gray-700 cursor-pointer";
+            } else {
+                btnIst.className = "px-4 py-2 text-xs font-bold rounded-lg bg-white text-orange-600 shadow-xs cursor-pointer";
+                btnPlan.className = "px-4 py-2 text-xs font-bold rounded-lg text-gray-500 hover:text-gray-700 cursor-pointer";
+            }
+            window.ladeDashboard();
+        };
+
+        function getWochenDaten(basisDatum) {
+            const dCopy = new Date(basisDatum);
+            const tag = dCopy.getDay();
+            const diff = dCopy.getDate() - tag + (tag === 0 ? -6 : 1);
+            const montag = new Date(dCopy.setDate(diff));
+            let tage = [];
+            for(let i=0; i<7; i++) {
+                const d = new Date(montag); d.setDate(montag.getDate() + i);
+                tage.push(d.toISOString().split('T')[0]);
+            }
+            return tage;
+        }
+
+        window.wocheWechseln = function(diff) {
+            fokusDatum.setDate(fokusDatum.getDate() + diff);
+            window.ladeDashboard();
+        };
+
+        window.ladeDashboard = async function() {
+            const wochenTage = getWochenDaten(fokusDatum);
+            document.getElementById('kw-anzeige').innerText = "Planungswoche vom " + wochenTage[0];
+            
+            ['mo','di','mi','do','fr','sa','so'].forEach((id, i) => {
+                const tageNamen = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+                document.getElementById(`th-${id}`).innerHTML = `${tageNamen[i]}<br><span class="font-normal text-[10px] text-gray-400">${wochenTage[i].split('-')[2]}.${wochenTage[i].split('-')[1]}.</span>`;
+            });
+
+            const antwort = await fetch(`${API_URL}/planer/dashboard`);
+            const daten = await antwort.json();
+
+            // Offene Mitarbeiter-Anträge
+            const antraegeLeiste = document.getElementById('antraege-liste');
+            antraegeLeiste.innerHTML = "";
+            const offeneAntraege = daten.wunschfrei ? daten.wunschfrei.filter(w => w.status === 'OFFEN') : [];
+            if(offeneAntraege.length === 0) {
+                antraegeLeiste.innerHTML = `<p class="text-xs text-gray-400 italic">Keine offenen Anträge vorhanden.</p>`;
+            } else {
+                offeneAntraege.forEach(w => {
+                    antraegeLeiste.innerHTML += `
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col justify-between">
+                            <div class="text-xs"><b>${w.mitarbeiter}</b> (${w.datum}): ${w.von_uhrzeit}-${w.bis_uhrzeit} <br><i class="text-gray-500">"${w.grund}"</i></div>
+                            <div class="flex gap-1 mt-2">
+                                <button onclick="window.antragEntscheiden(${w.id}, 'genehmigen')" class="bg-emerald-500 text-white p-1 rounded text-[10px] font-bold flex-grow cursor-pointer">✓ Genehmigen</button>
+                                <button onclick="window.antragEntscheiden(${w.id}, 'ablehnen')" class="bg-rose-500 text-white p-1 rounded text-[10px] font-bold flex-grow cursor-pointer">✕ Ablehnen</button>
+                            </div>
+                        </div>`;
+                });
+            }
+
+            // Dropdown für das Hauptformular befüllen
+            document.getElementById('form-ma').innerHTML = daten.mitarbeiter.map(m => `<option value="${m}">${m}</option>`).join('');
+            
+            // Mitarbeiter-Liste Sidebar
+            document.getElementById('mitarbeiter-liste-sidebar').innerHTML = daten.mitarbeiter.map(m => `
+                <div class="p-2 bg-gray-50 rounded-xl text-xs font-bold flex justify-between items-center border border-gray-100">
+                    <span class="text-gray-800">${m}</span>
+                    <button onclick="window.mitarbeiterLoeschen('${m}')" class="text-red-500 hover:text-red-700 font-bold px-1.5 cursor-pointer" title="Mitarbeiter löschen">✕</button>
+                </div>
+            `).join('');
+
+            // KLIENTEN-WUNSCHPOOL RENDERN
+            const poolListe = document.getElementById('klienten-pool-liste');
+            poolListe.innerHTML = "";
+            const poolDaten = daten.wunschtermineKlienten || [];
+            
+            if(poolDaten.length === 0) {
+                poolListe.innerHTML = `<p class="text-xs text-gray-400 italic">Der Pool ist leer.</p>`;
+            } else {
+                poolDaten.sort((a,b) => new Date(a.datum) - new Date(b.datum));
+                poolDaten.forEach(w => {
+                    const dSplitted = w.datum.split('-');
+                    const formatiertesDatum = `${dSplitted[2]}.${dSplitted[1]}.`;
+                    
+                    poolListe.innerHTML += `
+                        <div class="bg-purple-50/70 border border-purple-200 rounded-xl p-2.5 space-y-2 shadow-2xs">
+                            <div class="text-xs">
+                                <div class="flex justify-between font-bold text-purple-950">
+                                    <span class="truncate max-w-[110px]">${w.kunde}</span>
+                                    <span class="bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded-sm text-[9px]">${formatiertesDatum}</span>
+                                </div>
+                                <div class="text-[10px] text-gray-600 font-semibold mt-0.5">🕒 Uhrzeit: ${w.von_uhrzeit} - ${w.bis_uhrzeit}</div>
+                                ${w.notiz ? `<div class="text-[10px] italic text-purple-800 bg-white/60 p-1 rounded mt-1 border border-purple-100">"${w.notiz}"</div>` : ''}
+                            </div>
+                            <div class="flex gap-1 items-center pt-1 border-t border-purple-200/50">
+                                <select id="assign-ma-${w.id}" class="text-[10px] p-1 border rounded bg-white w-full">
+                                    ${daten.mitarbeiter.map(m => `<option value="${m}">${m}</option>`).join('')}
+                                </select>
+                                <button onclick="window.poolWunschZuweisen(${w.id})" class="bg-purple-600 text-white font-bold p-1 rounded text-[10px] cursor-pointer shadow-2xs">Zuteilen</button>
+                                <button onclick="window.poolWunschLoeschen(${w.id})" class="text-red-500 font-bold px-1 text-xs cursor-pointer">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            // Matrix Tabelle befüllen
+            const matrixBody = document.getElementById('matrix-body');
+            matrixBody.innerHTML = "";
+
+            daten.mitarbeiter.forEach(m => {
+                let row = `<tr class="border-b">`;
+                row += `<td class="p-3 font-bold border-r bg-gray-50 sticky left-0 z-10">${m}</td>`;
+
+                wochenTage.forEach(tag => {
+                    row += `<td class="p-2 border-r vertical-align-top min-w-[150px]">`;
+                    let tagesElemente = [];
+
+                    if(daten.wunschfrei) {
+                        daten.wunschfrei.filter(w => w.mitarbeiter === m && w.datum === tag).forEach(w => {
+                            tagesElemente.push({ typ: 'wunschfrei', von: w.von_uhrzeit, daten: w });
+                        });
+                    }
+                    
+                    daten.termine.filter(t => t.mitarbeiter === m && t.datum === tag).forEach(t => {
+                        if (ansichtsModus === "PLAN" && t.status !== 'IST-ZEIT') {
+                            tagesElemente.push({ typ: 'termin', von: t.von_uhrzeit, daten: t });
+                        } else if (ansichtsModus === "IST" && t.status !== 'ORIGINAL_GEÄNDERT') {
+                            tagesElemente.push({ typ: 'termin', von: t.von_uhrzeit, daten: t });
+                        }
+                    });
+
+                    tagesElemente.sort((a, b) => a.von.localeCompare(b.von));
+
+                    tagesElemente.forEach(item => {
+                        if (item.typ === 'wunschfrei') {
+                            const w = item.daten;
+                            let farbKlasse = w.status === 'GENEHMIGT' ? "bg-emerald-100 text-emerald-900 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300";
+                            if(w.status === 'ABGELEHNT') farbKlasse = "bg-red-100 text-red-800 border-red-300 line-through opacity-40";
+                            row += `<div class="border rounded-lg p-2 text-[10px] font-bold mb-2 ${farbKlasse}">🛑 Frei: ${w.von_uhrzeit}-${w.bis_uhrzeit}</div>`;
+                        } else if (item.typ === 'termin') {
+                            const t = item.daten;
+                            let statusColor = t.status === 'FREIGEGEBEN' ? 'bg-white border-emerald-400 text-emerald-950 font-semibold' : 'bg-white border-blue-300 text-blue-900';
+                            if (t.status === 'ORIGINAL_GEÄNDERT') statusColor = 'bg-gray-100 border-gray-300 text-gray-400 line-through opacity-60';
+                            if (t.status === 'IST-ZEIT') statusColor = 'bg-orange-50 border-orange-400 text-orange-950 border-2 font-bold';
+
+                            row += `
+                                <div class="border rounded-lg p-2 mb-2 text-[11px] ${statusColor}">
+                                    <div class="font-bold flex justify-between"><span>${t.von_uhrzeit} - ${t.bis_uhrzeit}</span>
+                                    ${t.status !== 'ORIGINAL_GEÄNDERT' ? `<button onclick="window.terminLoeschen(${t.id})" class="text-red-400 font-bold cursor-pointer">✕</button>` : ''}</div>
+                                    <div class="truncate mt-0.5">${t.kunde}</div>
+                                </div>`;
+                        }
+                    });
+                    row += `</td>`;
+                });
+                row += `</tr>`;
+                matrixBody.innerHTML += row;
+            });
+        };
+
+        window.mitarbeiterLoeschen = async function(name) {
+            if(!confirm(`Möchtest du ${name} wirklich aus dem System löschen?`)) return;
+            const antwort = await fetch(`${API_URL}/planer/mitarbeiter/${encodeURIComponent(name)}`, { method: 'DELETE' });
+            if(antwort.ok) window.ladeDashboard();
+        };
+
+        window.poolWunschAnlegen = async function() {
+            const kunde = document.getElementById('pool-kunde').value;
+            const datum = document.getElementById('pool-datum').value;
+            const von_uhrzeit = document.getElementById('pool-von').value;
+            const bis_uhrzeit = document.getElementById('pool-bis').value;
+            const notiz = document.getElementById('pool-notiz').value;
+            if(!kunde || !datum) return alert("Kunde und Datum eintragen!");
+
+            await fetch(`${API_URL}/planer/klienten-wunsch`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ kunde, datum, von_uhrzeit, bis_uhrzeit, notiz })
+            });
+            document.getElementById('pool-kunde').value = "";
+            document.getElementById('pool-notiz').value = "";
+            window.ladeDashboard();
+        };
+
+        window.poolWunschLoeschen = async function(id) {
+            await fetch(`${API_URL}/planer/klienten-wunsch/${id}`, { method: 'DELETE' });
+            window.ladeDashboard();
+        };
+
+        window.poolWunschZuweisen = async function(id) {
+            const mitarbeiter = document.getElementById(`assign-ma-${id}`).value;
+            const antwort = await fetch(`${API_URL}/planer/klienten-wunsch-zuweisen/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ mitarbeiter })
+            });
+            if(antwort.ok) window.ladeDashboard();
+        };
+
+        window.antragEntscheiden = async function(id, aktion) { await fetch(`${API_URL}/planer/wunschfrei/${id}/${aktion}`, { method: 'POST' }); window.ladeDashboard(); };
+        window.terminAnlegen = async function() {
+            const mitarbeiter = document.getElementById('form-ma').value; const kunde = document.getElementById('form-kunde').value;
+            const datum = document.getElementById('form-datum').value; const von_uhrzeit = document.getElementById('form-von').value; const bis_uhrzeit = document.getElementById('form-bis').value;
+            if(!kunde || !datum) return;
+            await fetch(`${API_URL}/planer/termin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit }) });
+            document.getElementById('form-kunde').value = ""; window.ladeDashboard();
+        };
+        window.terminLoeschen = async function(id) { await fetch(`${API_URL}/planer/termin/${id}`, { method: 'DELETE' }); window.ladeDashboard(); };
+        window.terminFreigeben = async function() { await fetch(`${API_URL}/planer/freigeben`, { method: 'POST' }); window.ladeDashboard(); };
+        window.mitarbeiterAnlegen = async function() {
+            const name = document.getElementById('ma-name').value; if(!name) return;
+            await fetch(`${API_URL}/planer/mitarbeiter`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
+            document.getElementById('ma-name').value = ""; window.ladeDashboard();
+        };
+
+        window.ladeDashboard();
+    </script>
+</body>
+</html>
