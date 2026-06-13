@@ -1,0 +1,66 @@
+{
+  "mitarbeiterListe": [
+    {
+      "name": "Steffi",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Kofhal",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Wiegefe",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Stephan",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Enge",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Penke",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Dina",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Ali",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Edith",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Gabi",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Reiner",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Dani",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Diana",
+      "passwort": "cito2026"
+    },
+    {
+      "name": "Babara",
+      "passwort": "cito2026"
+    }
+  ],
+  "termine": [],
+  "wunschfreiListe": [],
+  "wunschtermineKlienten": [],
+  "naechsteTerminId": 3,
+  "naechsteWunschfreiId": 1,
+  "naechsteKlientenWunschId": 4
+}
