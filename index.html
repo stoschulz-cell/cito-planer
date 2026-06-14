@@ -15,23 +15,26 @@
 
     <div id="planer-view" class="hidden">
         <h1 class="text-2xl font-bold mb-4">Planer Dashboard</h1>
-        <div id="mitarbeiter-liste-sidebar" class="grid gap-2 mb-4"></div>
-        <table class="w-full bg-white shadow rounded">
+        <table class="w-full bg-white shadow rounded border-collapse">
+            <thead>
+                <tr class="bg-gray-200">
+                    <th class="p-3 border">Mitarbeiter</th>
+                    <th class="p-3 border">Termine</th>
+                </tr>
+            </thead>
             <tbody id="matrix-body"></tbody>
         </table>
     </div>
 
     <div id="mitarbeiter-view" class="hidden">
         <h1 class="text-2xl font-bold mb-4">Meine Termine</h1>
-        <div id="meine-termine"></div>
+        <div id="meine-termine" class="bg-white p-4 rounded shadow"></div>
     </div>
 
     <script>
-        const API_URL = "/api";
-
         async function login() {
             const name = document.getElementById('nameInput').value;
-            const res = await fetch(`${API_URL}/login`, {
+            const res = await fetch('/api/login', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ name })
@@ -40,38 +43,30 @@
             if (res.ok) {
                 const data = await res.json();
                 document.getElementById('login-view').classList.add('hidden');
-                
                 if (data.role === 'planer') {
                     document.getElementById('planer-view').classList.remove('hidden');
-                    window.ladeDashboard(); 
+                    ladeDashboard();
                 } else {
                     document.getElementById('mitarbeiter-view').classList.remove('hidden');
                 }
             } else {
-                alert("Name nicht im System gefunden.");
+                alert("Nicht gefunden.");
             }
         }
 
-        window.ladeDashboard = async function() {
-            try {
-                const antwort = await fetch(`${API_URL}/planer/dashboard`);
-                const daten = await antwort.json();
-                
-                // Sidebar Mitarbeiter
-                const sidebar = document.getElementById('mitarbeiter-liste-sidebar');
-                if(sidebar && daten.mitarbeiter) {
-                    sidebar.innerHTML = daten.mitarbeiter.map(m => `
-                        <div class="p-2 bg-white rounded border">${m}</div>`).join('');
-                }
-
-                // Tabelle Matrix
-                const matrixBody = document.getElementById('matrix-body');
-                if(matrixBody && daten.mitarbeiter) {
-                    matrixBody.innerHTML = daten.mitarbeiter.map(m => `
-                        <tr><td class="p-3 border font-bold">${m}</td><td class="p-3 border text-gray-500">Keine Termine</td></tr>`).join('');
-                }
-            } catch (e) { console.error("Fehler beim Laden:", e); }
-        };
+        async function ladeDashboard() {
+            const res = await fetch('/api/planer/dashboard');
+            const data = await res.json();
+            const matrixBody = document.getElementById('matrix-body');
+            
+            matrixBody.innerHTML = data.mitarbeiter.map(m => {
+                const termine = (data.termine || []).filter(t => t.mitarbeiter === m);
+                return `<tr>
+                    <td class="p-3 border font-bold">${m}</td>
+                    <td class="p-3 border">${termine.map(t => `<span class="bg-blue-100 px-2 py-1 rounded text-sm">${t.kunde}</span>`).join(' ')}</td>
+                </tr>`;
+            }).join('');
+        }
     </script>
 </body>
 </html>
