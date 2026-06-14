@@ -65,26 +65,32 @@
                 }
 
                 document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
-                    tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}</th>`).join('');
+                    tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('');
 
                 document.getElementById('matrix-body').innerHTML = (d.mitarbeiterListe || []).map(m => {
                     const termineMA = (d.termine || []).filter(x => x.mitarbeiter === m.name && tage.includes(x.datum));
                     return `
                         <tr class="hover:bg-gray-50">
-                            <td class="p-3 border font-bold">${m.name}</td>
+                            <td class="p-3 border font-bold text-sm">${m.name}</td>
                             ${tage.map(t => {
                                 const termin = termineMA.find(x => x.datum === t);
                                 if (!termin) return '<td class="p-2 border"></td>';
                                 
-                                // Wenn MA selbst: Bearbeitbar, sonst nur Info
+                                // ROBUSTE LOGIK: Versteht neues Format (Original/Aktuell) & altes Format
+                                let v = { von: "00:00", bis: "00:00" };
+                                if (termin.original && termin.original.von) {
+                                    v = termin.hatAenderung ? termin.aktuell : termin.original;
+                                } else {
+                                    v = { von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00" };
+                                }
+                                
                                 const isOwner = m.name === meinName;
-                                const v = termin.aktuell || termin.original;
 
-                                return `<td class="p-2 border ${termin.hatAenderung ? 'bg-orange-50' : ''}">
+                                return `<td class="p-2 border text-[11px] h-20 ${termin.hatAenderung ? 'bg-orange-50' : ''}">
                                     <b>${termin.kunde}</b><br>
                                     ${isOwner ? `
-                                        <input type="time" id="von-${termin.id}" value="${v.von}" class="border w-20 text-xs">
-                                        <input type="time" id="bis-${termin.id}" value="${v.bis}" class="border w-20 text-xs mt-1">
+                                        <input type="time" id="von-${termin.id}" value="${v.von}" class="border w-16 text-xs block">
+                                        <input type="time" id="bis-${termin.id}" value="${v.bis}" class="border w-16 text-xs block mt-1">
                                         <button onclick="terminVerschieben(${termin.id})" class="bg-green-500 text-white px-2 py-1 text-[10px] mt-1 rounded">Speichern</button>
                                     ` : `${v.von}-${v.bis}`}
                                 </td>`;

@@ -72,7 +72,6 @@
             document.getElementById('btn-freigabe').innerText = (d.freigaben?.[kwId]) ? "Plan ist FREIGEGEBEN" : "Plan ist ENTWURF";
             document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
 
-            // Mitarbeiter mit Sortier-Buttons
             document.getElementById('mitarbeiter-liste-sidebar').innerHTML = (d.mitarbeiterListe || []).map(m => `
                 <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
                     <span>${m.name}</span>
@@ -103,7 +102,15 @@
                         ${tage.map(t => {
                             const termin = termineMA.find(x => x.datum === t);
                             if (!termin) return '<td class="p-2 border"></td>';
-                            const v = termin.hatAenderung ? termin.aktuell : termin.original;
+                            
+                            // ROBUSTE LOGIK: Prüft neues Format, sonst Fallback auf altes
+                            let v = { von: "00:00", bis: "00:00" };
+                            if (termin.original && termin.original.von) {
+                                v = termin.hatAenderung ? termin.aktuell : termin.original;
+                            } else {
+                                v = { von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00" };
+                            }
+
                             return `<td class="p-2 border text-[11px] h-20 ${termin.hatAenderung ? 'bg-orange-100' : ''}">
                                 <b>${termin.kunde}</b><br>${v.von}-${v.bis}
                                 ${termin.hatAenderung ? `<button onclick="bestaetigen(${termin.id})" class="text-green-700 font-bold block underline">✓ Bestätigen</button>` : ''}
