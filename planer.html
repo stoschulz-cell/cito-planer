@@ -9,7 +9,10 @@
     <div class="max-w-7xl mx-auto">
         <div class="bg-blue-700 p-4 rounded-t-xl text-white flex justify-between items-center shadow-lg">
             <h1 class="text-xl font-bold">Cito Care Zentrale</h1>
-            <button onclick="window.location.href='index.html'" class="bg-red-500 px-3 py-1 rounded text-sm font-semibold hover:bg-red-600">Abmelden</button>
+            <div class="flex gap-2">
+                <button id="btn-freigabe" onclick="toggleFreigabe()" class="px-3 py-1 rounded text-sm font-semibold transition"></button>
+                <button onclick="window.location.href='index.html'" class="bg-red-500 px-3 py-1 rounded text-sm font-semibold hover:bg-red-600">Abmelden</button>
+            </div>
         </div>
         
         <div class="bg-white p-6 rounded-b-xl shadow-lg grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -58,14 +61,20 @@
     <script>
         let aktuellerMontag = new Date();
         aktuellerMontag.setDate(aktuellerMontag.getDate() - (aktuellerMontag.getDay() + 6) % 7);
+        let istFreigegeben = false;
 
         async function ladeDashboard() {
             const res = await fetch('/api/planer/dashboard');
             const d = await res.json();
             
+            // Freigabe-Status Logik
+            istFreigegeben = d.planFreigegeben || false;
+            const btn = document.getElementById('btn-freigabe');
+            btn.innerText = istFreigegeben ? "Plan ist FREIGEGEBEN" : "Plan ist GESPERRT";
+            btn.className = istFreigegeben ? "bg-green-500 hover:bg-green-600 text-white" : "bg-yellow-500 hover:bg-yellow-600 text-black";
+
             document.getElementById('kw-titel').innerText = `KW ${getKW(aktuellerMontag)}`;
 
-            // Mitarbeiter Sidebar mit Sortier-Buttons
             document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
                 <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
                     <span class="truncate w-20">${m.name}</span>
@@ -119,6 +128,15 @@
             document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
         }
 
+        async function toggleFreigabe() {
+            await fetch('/api/planer/freigabe', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ status: !istFreigegeben })
+            });
+            ladeDashboard();
+        }
+
         async function sortiereMitarbeiter(name, richtung) {
             await fetch('/api/planer/mitarbeiter/sortieren', {
                 method: 'POST',
@@ -128,7 +146,6 @@
             ladeDashboard();
         }
 
-        // ... (restliche Funktionen: getKW, wocheBlaettern, mitarbeiterAnlegen, etc.)
         function getKW(date) {
             let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
             d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));

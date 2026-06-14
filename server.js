@@ -56,6 +56,20 @@ app.get('/api/planer/dashboard', async (req, res) => {
     }
 });
 
+// --- PLAN FREIGABE ---
+app.post('/api/planer/freigabe', async (req, res) => {
+    try {
+        const { status } = req.body; // true oder false
+        await db.collection('daten').updateOne(
+            { id: "main" }, 
+            { $set: { planFreigegeben: status } }
+        );
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: "Fehler bei Freigabe" });
+    }
+});
+
 // --- MITARBEITER ANLEGEN ---
 app.post('/api/planer/mitarbeiter', async (req, res) => {
     try {
@@ -86,7 +100,7 @@ app.delete('/api/planer/mitarbeiter/:name', async (req, res) => {
 // --- MITARBEITER SORTIEREN ---
 app.post('/api/planer/mitarbeiter/sortieren', async (req, res) => {
     try {
-        const { name, richtung } = req.body; // richtung: 'up' oder 'down'
+        const { name, richtung } = req.body;
         const data = await db.collection('daten').findOne({ id: "main" });
         let liste = data.mitarbeiterListe;
         const index = liste.findIndex(m => m.name === name);
