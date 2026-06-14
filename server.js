@@ -43,41 +43,70 @@ app.get('/api/planer/dashboard', async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Fehler beim Laden" }); }
 });
 
+// --- WUNSCHFREI LOGIK ---
+app.post('/api/mitarbeiter/wunsch-einreichen', async (req, res) => {
+    try {
+        const { mitarbeiter, datum, zeit, grund, status } = req.body;
+        await db.collection('daten').updateOne({ id: "main" }, { 
+            $push: { wunschfreiListe: { id: Date.now(), mitarbeiter, datum, zeit, grund, status } } 
+        });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Fehler beim Senden" }); }
+});
+
+app.get('/api/planer/wuensche', async (req, res) => {
+    try {
+        const data = await db.collection('daten').findOne({ id: "main" });
+        res.json(data.wunschfreiListe || []);
+    } catch (e) { res.status(500).json({ error: "Fehler beim Laden" }); }
+});
+
+app.post('/api/planer/wunsch/bestaetigen', async (req, res) => {
+    try {
+        const { id } = req.body;
+        const data = await db.collection('daten').findOne({ id: "main" });
+        const wunsch = data.wunschfreiListe.find(w => w.id === Number(id));
+        
+        if (wunsch) {
+            // Wunsch in Termine verschieben
+            const neuerTermin = { 
+                id: Date.now(), 
+                mitarbeiter: wunsch.mitarbeiter, 
+                kunde: "Wunsch: " + wunsch.grund, 
+                datum: wunsch.datum, 
+                original: { datum: wunsch.datum, von: wunsch.zeit, bis: "00:00" },
+                aktuell: { datum: wunsch.datum, von: wunsch.zeit, bis: "00:00" },
+                hatAenderung: false 
+            };
+            await db.collection('daten').updateOne({ id: "main" }, { 
+                $push: { termine: neuerTermin },
+                $pull: { wunschfreiListe: { id: Number(id) } }
+            });
+        }
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Fehler bei Bestätigung" }); }
+});
+
 // --- TERMIN LOGIK ---
-// ANGEPASSTE ROUTE: Unterstützt jetzt Datum, Start- und Endzeit
 app.post('/api/mitarbeiter/verschieben-als-aenderung', async (req, res) => {
     try {
         const { id, neuesDatum, neueVon, neueBis } = req.body;
         await db.collection('daten').updateOne(
             { id: "main", "termine.id": Number(id) },
-            { 
-                $set: { 
-                    "termine.$.aktuell": { datum: neuesDatum, von: neueVon, bis: neueBis },
-                    "termine.$.datum": neuesDatum, // Aktualisiert auch das Haupt-Datumsfeld
-                    "termine.$.hatAenderung": true 
-                } 
-            }
+            { $set: { "termine.$.aktuell": { datum: neuesDatum, von: neueVon, bis: neueBis }, "termine.$.datum": neuesDatum, "termine.$.hatAenderung": true } }
         );
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fehler beim Verschieben" }); }
 });
 
-// ROUTE FÜR PLANER: Bestätigt die Änderung
 app.post('/api/planer/termin/bestaetigen', async (req, res) => {
     try {
         const { id } = req.body;
         const data = await db.collection('daten').findOne({ id: "main" });
         const term = data.termine.find(t => t.id === Number(id));
-        
         await db.collection('daten').updateOne(
             { id: "main", "termine.id": Number(id) },
-            { 
-                $set: { 
-                    "termine.$.original": term.aktuell, 
-                    "termine.$.datum": term.aktuell.datum,
-                    "termine.$.hatAenderung": false 
-                } 
-            }
+            { $set: { "termine.$.original": term.aktuell, "termine.$.datum": term.aktuell.datum, "termine.$.hatAenderung": false } }
         );
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fehler bei Bestätigung" }); }
@@ -86,12 +115,7 @@ app.post('/api/planer/termin/bestaetigen', async (req, res) => {
 app.post('/api/planer/termin', async (req, res) => {
     try {
         const { mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit } = req.body;
-        const neuerTermin = { 
-            id: Date.now(), mitarbeiter, kunde, datum, 
-            original: { datum, von: von_uhrzeit, bis: bis_uhrzeit },
-            aktuell: { datum, von: von_uhrzeit, bis: bis_uhrzeit },
-            hatAenderung: false 
-        };
+        const neuerTermin = { id: Date.now(), mitarbeiter, kunde, datum, original: { datum, von: von_uhrzeit, bis: bis_uhrzeit }, aktuell: { datum, von: von_uhrzeit, bis: bis_uhrzeit }, hatAenderung: false };
         await db.collection('daten').updateOne({ id: "main" }, { $push: { termine: neuerTermin } });
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fehler beim Anlegen" }); }
