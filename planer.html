@@ -73,7 +73,7 @@
                 </div>
             `).join('');
 
-            // Termine rendern
+            // Wochentage berechnen
             let tage = [];
             for(let i=0; i<7; i++) {
                 let tag = new Date(aktuellerMontag);
@@ -81,21 +81,23 @@
                 tage.push(tag.toISOString().split('T')[0]);
             }
 
+            // Header rendern
             const wochentage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
             document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
                 tage.map((t, i) => `<th class="p-3 border">${wochentage[i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('');
 
+            // Matrix rendern
             document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => `
                 <tr class="hover:bg-gray-50">
                     <td class="p-3 border font-semibold text-sm text-gray-700">${m.name}</td>
                     ${tage.map(t => {
-                        // FILTER statt FIND, um alle Termine zu erhalten
                         const termineDesTages = (d.termine || []).filter(x => x.mitarbeiter === m.name && x.datum === t);
                         
                         return `<td class="p-2 border text-[11px] h-20 align-top">
                             ${termineDesTages.map(termin => `
                                 <div class="bg-blue-100 p-1 rounded border border-blue-200 mb-1">
-                                    <b>${termin.kunde}</b><br>${termin.von_uhrzeit}
+                                    <b>${termin.kunde}</b><br>
+                                    ${termin.von_uhrzeit} - ${termin.bis_uhrzeit} Uhr
                                     <button onclick="terminLoeschen(${termin.id})" class="text-red-600 font-bold block mt-1 hover:text-red-800">✕ Löschen</button>
                                 </div>
                             `).join('')}
