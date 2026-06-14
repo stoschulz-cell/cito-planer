@@ -25,7 +25,14 @@
     <script>
         const meinName = localStorage.getItem('mitarbeiterName') || "";
         
-        // Logik für korrekten Wochenstart (Montag)
+        // Hilfsfunktion für lokales YYYY-MM-DD (vermeidet UTC-Verschiebung)
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
         function getMontagVonWoche(date) {
             let d = new Date(date);
             let day = d.getDay();
@@ -58,7 +65,7 @@
             for(let i=0; i<7; i++) {
                 let tag = new Date(aktuellerMontag);
                 tag.setDate(tag.getDate() + i);
-                tage.push(tag.toISOString().split('T')[0]);
+                tage.push(formatDate(tag)); // Korrekte lokale Datums-Funktion
             }
 
             let headerHtml = '<tr><th class="p-3 border">Mitarbeiter</th>' + 
