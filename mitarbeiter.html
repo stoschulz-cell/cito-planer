@@ -23,8 +23,10 @@
     </div>
 
     <script>
-        const meinName = (localStorage.getItem('mitarbeiterName') || "").trim().toLowerCase();
-        
+        // Name aus Speicher holen und für den Vergleich vorbereiten
+        const gespeicherterName = localStorage.getItem('mitarbeiterName') || "";
+        const meinName = gespeicherterName.trim().toLowerCase();
+
         function formatDate(date) {
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -53,44 +55,48 @@
         }
 
         async function ladeUebersicht() {
-            const res = await fetch('/api/planer/dashboard');
-            const d = await res.json();
-            const kwId = getKwId(aktuellerMontag);
-            
-            document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
-
-            let tage = [];
-            for(let i=0; i<7; i++) {
-                let tag = new Date(aktuellerMontag);
-                tag.setDate(tag.getDate() + i);
-                tage.push(formatDate(tag));
-            }
-
-            let headerHtml = '<tr><th class="p-3 border">Mitarbeiter</th>' + 
-                tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('') + '</tr>';
-
-            let bodyHtml = (d.mitarbeiterListe || []).map(m => {
-                const dbName = m.name.trim().toLowerCase();
-                const isOwner = (dbName === meinName);
-                let row = `<tr><td class="p-3 border font-bold">${m.name}</td>`;
+            try {
+                const res = await fetch('/api/planer/dashboard');
+                const d = await res.json();
+                const kwId = getKwId(aktuellerMontag);
                 
-                tage.forEach(t => {
-                    const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
-                    if (!termin) {
-                        row += `<td class="border p-2"></td>`;
-                    } else {
-                        let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
-                        row += `<td class="border p-2 text-[10px] ${termin.hatAenderung ? 'bg-orange-100' : ''}">
-                            <b>${termin.kunde}</b><br>${v.von}-${v.bis}
-                            ${isOwner ? `<button onclick="terminBearbeiten('${termin.id}', '${termin.datum}', '${v.von}', '${v.bis}')" 
-                                    class="block w-full bg-blue-600 text-white mt-1 rounded">Ändern</button>` : ''}
-                        </td>`;
-                    }
-                });
-                return row + `</tr>`;
-            }).join('');
+                document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
 
-            document.getElementById('plan-container').innerHTML = `<table class="w-full border-collapse border"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table>`;
+                let tage = [];
+                for(let i=0; i<7; i++) {
+                    let tag = new Date(aktuellerMontag);
+                    tag.setDate(tag.getDate() + i);
+                    tage.push(formatDate(tag));
+                }
+
+                let headerHtml = '<tr><th class="p-3 border">Mitarbeiter</th>' + 
+                    tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('') + '</tr>';
+
+                let bodyHtml = (d.mitarbeiterListe || []).map(m => {
+                    const dbName = m.name.trim().toLowerCase();
+                    const isOwner = (dbName === meinName);
+                    
+                    let row = `<tr><td class="p-3 border font-bold">${m.name}</td>`;
+                    tage.forEach(t => {
+                        const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
+                        if (!termin) {
+                            row += `<td class="border p-2"></td>`;
+                        } else {
+                            let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
+                            row += `<td class="border p-2 text-[10px] ${termin.hatAenderung ? 'bg-orange-100' : ''}">
+                                <b>${termin.kunde}</b><br>${v.von}-${v.bis}
+                                ${isOwner ? `<button onclick="terminBearbeiten('${termin.id}', '${termin.datum}', '${v.von}', '${v.bis}')" 
+                                        class="block w-full bg-blue-600 text-white mt-1 rounded">Ändern</button>` : ''}
+                            </td>`;
+                        }
+                    });
+                    return row + `</tr>`;
+                }).join('');
+
+                document.getElementById('plan-container').innerHTML = `<table class="w-full border-collapse border"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table>`;
+            } catch (err) {
+                console.error("Fehler beim Laden:", err);
+            }
         }
 
         async function terminBearbeiten(id, altesDatum, alteVon, alteBis) {
