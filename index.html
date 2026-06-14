@@ -11,7 +11,7 @@
         <input id="pass" type="password" placeholder="Passwort" class="w-full border p-2 mb-4 rounded">
         <button onclick="login()" class="w-full bg-blue-600 text-white p-2 rounded">Login</button>
     </div>
-    <script>
+<script>
     async function login() {
         const name = document.getElementById('name').value;
         const passwort = document.getElementById('pass').value;
@@ -24,7 +24,7 @@
         
         const data = await res.json();
         if (res.ok) {
-            // WICHTIG: Name wird hier sicher für die nächste Seite gespeichert
+            // WICHTIG: Name im Browser speichern, damit er in mitarbeiter.html bekannt ist
             localStorage.setItem('mitarbeiterName', name.trim().toLowerCase());
             window.location.href = data.role === 'planer' ? 'planer.html' : 'mitarbeiter.html';
         } else {
