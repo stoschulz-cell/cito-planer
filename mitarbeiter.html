@@ -24,15 +24,26 @@
 
     <script>
         const meinName = localStorage.getItem('mitarbeiterName') || "";
-        let aktuellerMontag = new Date();
-        aktuellerMontag.setDate(aktuellerMontag.getDate() - (aktuellerMontag.getDay() + 6) % 7);
-        aktuellerMontag.setHours(0,0,0,0);
+        
+        // Logik für korrekten Wochenstart (Montag)
+        function getMontagVonWoche(date) {
+            let d = new Date(date);
+            let day = d.getDay();
+            let diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            d.setDate(diff);
+            d.setHours(0,0,0,0);
+            return d;
+        }
+
+        let aktuellerMontag = getMontagVonWoche(new Date());
 
         function getKwId(date) {
             let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
             d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-            let kw = Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1)/7);
-            return `${d.getUTCFullYear()}-${kw}`;
+            let year = d.getUTCFullYear();
+            let yearStart = new Date(Date.UTC(year,0,1));
+            let kw = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+            return `${year}-${kw}`;
         }
 
         async function ladeUebersicht() {
@@ -75,18 +86,23 @@
         }
 
         async function terminBearbeiten(id, altesDatum, alteVon, alteBis) {
-            const neuesDatum = prompt("Neues Datum (YYYY-MM-DD):", altesDatum);
+            const neuesDatum = prompt("Neues Datum (Format YYYY-MM-DD):", altesDatum);
             const neueVon = prompt("Neue Uhrzeit (von):", alteVon);
             const neueBis = prompt("Neue Uhrzeit (bis):", alteBis);
 
             if (neuesDatum && neueVon && neueBis) {
-                await fetch('/api/mitarbeiter/verschieben-als-aenderung', {
+                const response = await fetch('/api/mitarbeiter/verschieben-als-aenderung', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ id: Number(id), neuesDatum, neueVon, neueBis })
                 });
-                alert("Änderung gesendet!");
-                ladeUebersicht();
+                
+                if (response.ok) {
+                    alert("Änderung wurde zur Bestätigung an den Planer gesendet!");
+                    ladeUebersicht();
+                } else {
+                    alert("Fehler beim Senden der Änderung.");
+                }
             }
         }
 
