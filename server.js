@@ -70,12 +70,15 @@ app.post('/api/planer/freigabe', async (req, res) => {
     }
 });
 
-// --- MITARBEITER TERMIN UPDATE (NEU) ---
+// --- MITARBEITER TERMIN UPDATE (KORRIGIERT) ---
 app.post('/api/mitarbeiter/termin/update', async (req, res) => {
     try {
         const { id, von, bis, geaendertVon } = req.body;
-        await db.collection('daten').updateOne(
-            { "termine.id": parseInt(id) },
+        // Wichtig: Wir wandeln die ID in eine Zahl um, falls sie als String kommt
+        const numericId = Number(id); 
+        
+        const result = await db.collection('daten').updateOne(
+            { id: "main", "termine.id": numericId },
             { $set: { 
                 "termine.$.von_uhrzeit": von,
                 "termine.$.bis_uhrzeit": bis,
@@ -83,8 +86,14 @@ app.post('/api/mitarbeiter/termin/update', async (req, res) => {
                 "termine.$.geaendertVon": geaendertVon
             }}
         );
+        
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: "Termin nicht gefunden" });
+        }
+        
         res.json({ success: true });
     } catch (e) {
+        console.error("Update Fehler:", e);
         res.status(500).json({ error: "Fehler beim Update" });
     }
 });

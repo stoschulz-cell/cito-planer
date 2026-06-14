@@ -79,7 +79,7 @@
 
             document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]} (${kwId.split('-')[0]})`;
 
-            document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
+            document.getElementById('mitarbeiter-liste-sidebar').innerHTML = (d.mitarbeiterListe || []).map(m => `
                 <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
                     <span class="truncate w-20">${m.name}</span>
                     <div class="flex gap-1">
@@ -101,7 +101,7 @@
                 tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('') +
                 '<th class="p-3 border">Gesamt</th>';
 
-            document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => {
+            document.getElementById('matrix-body').innerHTML = (d.mitarbeiterListe || []).map(m => {
                 const termineMA = (d.termine || []).filter(x => x.mitarbeiter === m.name && tage.includes(x.datum));
                 return `
                     <tr class="hover:bg-gray-50">
@@ -129,7 +129,7 @@
                 `;
             }).join('');
             
-            document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+            document.getElementById('termin-ma').innerHTML = (d.mitarbeiterListe || []).map(m => `<option value="${m.name}">${m.name}</option>`).join('');
         }
 
         async function toggleFreigabe() {
@@ -147,7 +147,8 @@
         async function mitarbeiterAnlegen() { const name = document.getElementById('new-ma').value; if(!name) return; await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); document.getElementById('new-ma').value = ''; ladeDashboard(); }
         async function mitarbeiterLoeschen(name) { if(confirm(`Wirklich ${name} löschen?`)) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); } }
         async function terminAnlegen() { const termin = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(termin) }); ladeDashboard(); }
-        async function terminLoeschen(id) { if(confirm("Termin wirklich löschen?")) { await fetch(`/api/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); } }
+        async function terminLoeschen(id) { if(confirm("Termin wirklich löschen?")) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); } }
+        
         window.onload = ladeDashboard;
     </script>
 </body>

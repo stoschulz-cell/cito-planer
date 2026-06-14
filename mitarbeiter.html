@@ -24,7 +24,6 @@
     <script>
         const meinName = localStorage.getItem('mitarbeiterName');
         let aktuellerMontag = new Date();
-        // Setze auf den letzten Montag
         aktuellerMontag.setDate(aktuellerMontag.getDate() - (aktuellerMontag.getDay() + 6) % 7);
         aktuellerMontag.setHours(0,0,0,0);
 
@@ -46,24 +45,22 @@
                 document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]} (${kwId.split('-')[0]})`;
 
                 if (!d.freigaben || !d.freigaben[kwId]) {
-                    document.getElementById('meine-ansicht').innerHTML = `<p class="text-red-500 p-4 border border-red-200 bg-red-50 rounded">Der Dienstplan für diese Woche (KW ${kwId.split('-')[1]}) wurde noch nicht freigegeben.</p>`;
+                    document.getElementById('meine-ansicht').innerHTML = `<p class="text-red-500 p-4 border border-red-200 bg-red-50 rounded">Der Dienstplan für diese Woche wurde noch nicht freigegeben.</p>`;
                     return;
                 }
 
-                // Berechne den Zeitraum der Woche für den Vergleich
                 let montag = new Date(aktuellerMontag);
                 let sonntag = new Date(montag);
                 sonntag.setDate(sonntag.getDate() + 6);
 
                 const meineTermine = (d.termine || []).filter(t => {
-                    // String "YYYY-MM-DD" zu Datumsobjekt
                     let [y, m, d_val] = t.datum.split('-').map(Number);
                     let terminDate = new Date(y, m - 1, d_val);
-                    return t.mitarbeiter === meinName && terminDate >= montag && terminDate <= sonntag;
+                    return t.mitarbeiter.trim() === meinName.trim() && terminDate >= montag && terminDate <= sonntag;
                 });
 
                 if (meineTermine.length === 0) {
-                    document.getElementById('meine-ansicht').innerHTML = "<p class='text-gray-500 italic'>Keine Termine für diese Woche vorhanden.</p>";
+                    document.getElementById('meine-ansicht').innerHTML = "<p class='text-gray-500 italic'>Keine Termine für diese Woche.</p>";
                 } else {
                     document.getElementById('meine-ansicht').innerHTML = meineTermine.map(t => `
                         <div class="p-4 border rounded ${t.istGeaendert ? 'bg-orange-50 border-orange-400' : 'bg-blue-50 border-blue-200'}">
