@@ -27,7 +27,7 @@ app.post('/api/auth/login', async (req, res) => {
     try {
         const { name, passwort } = req.body;
         const data = await db.collection('daten').findOne({ id: "main" });
-        const user = data.mitarbeiterListe.find(m => m.name.toLowerCase() === name.trim().toLowerCase());
+        const user = data?.mitarbeiterListe?.find(m => m.name.toLowerCase() === name.trim().toLowerCase());
         if (user && user.passwort === passwort) {
             const istPlaner = data.planerListe?.some(p => p.toLowerCase() === name.trim().toLowerCase());
             res.json({ success: true, name: user.name, role: istPlaner ? 'planer' : 'mitarbeiter' });
@@ -57,7 +57,7 @@ app.post('/api/mitarbeiter/wunsch-einreichen', async (req, res) => {
 app.get('/api/planer/wuensche', async (req, res) => {
     try {
         const data = await db.collection('daten').findOne({ id: "main" });
-        res.json(data.wunschfreiListe || []);
+        res.json(data?.wunschfreiListe || []);
     } catch (e) { res.status(500).json({ error: "Fehler beim Laden" }); }
 });
 
@@ -71,15 +71,15 @@ app.post('/api/planer/wunsch/bestaetigen', async (req, res) => {
             const neuerTermin = { 
                 id: Date.now(), 
                 mitarbeiter: wunsch.mitarbeiter, 
-                kunde: "Wunsch: " + wunsch.grund, 
+                kunde: wunsch.grund, // Hier wird der Grund als Termin-Grund gesetzt
                 datum: wunsch.datum, 
-                original: { datum: wunsch.datum, von: wunsch.zeit, bis: "00:00" },
-                aktuell: { datum: wunsch.datum, von: wunsch.zeit, bis: "00:00" },
+                original: { von: wunsch.zeit, bis: "00:00" },
+                aktuell: { von: wunsch.zeit, bis: "00:00" },
                 hatAenderung: false 
             };
             await db.collection('daten').updateOne({ id: "main" }, { 
                 $push: { termine: neuerTermin },
-                $pull: { wunschfreiListe: { id: id } } // Hier wird die ID als Number gesucht
+                $pull: { wunschfreiListe: { id: id } }
             });
             res.json({ success: true });
         } else {
@@ -94,7 +94,7 @@ app.post('/api/mitarbeiter/verschieben-als-aenderung', async (req, res) => {
         const { id, neuesDatum, neueVon, neueBis } = req.body;
         await db.collection('daten').updateOne(
             { id: "main", "termine.id": Number(id) },
-            { $set: { "termine.$.aktuell": { datum: neuesDatum, von: neueVon, bis: neueBis }, "termine.$.datum": neuesDatum, "termine.$.hatAenderung": true } }
+            { $set: { "termine.$.aktuell": { von: neueVon, bis: neueBis }, "termine.$.datum": neuesDatum, "termine.$.hatAenderung": true } }
         );
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fehler beim Verschieben" }); }
@@ -105,18 +105,20 @@ app.post('/api/planer/termin/bestaetigen', async (req, res) => {
         const { id } = req.body;
         const data = await db.collection('daten').findOne({ id: "main" });
         const term = data.termine.find(t => t.id === Number(id));
-        await db.collection('daten').updateOne(
-            { id: "main", "termine.id": Number(id) },
-            { $set: { "termine.$.original": term.aktuell, "termine.$.datum": term.aktuell.datum, "termine.$.hatAenderung": false } }
-        );
-        res.json({ success: true });
+        if (term) {
+            await db.collection('daten').updateOne(
+                { id: "main", "termine.id": Number(id) },
+                { $set: { "termine.$.original": term.aktuell, "termine.$.hatAenderung": false } }
+            );
+            res.json({ success: true });
+        }
     } catch (e) { res.status(500).json({ error: "Fehler bei Bestätigung" }); }
 });
 
 app.post('/api/planer/termin', async (req, res) => {
     try {
         const { mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit } = req.body;
-        const neuerTermin = { id: Date.now(), mitarbeiter, kunde, datum, original: { datum, von: von_uhrzeit, bis: bis_uhrzeit }, aktuell: { datum, von: von_uhrzeit, bis: bis_uhrzeit }, hatAenderung: false };
+        const neuerTermin = { id: Date.now(), mitarbeiter, kunde, datum, original: { von: von_uhrzeit, bis: bis_uhrzeit }, aktuell: { von: von_uhrzeit, bis: bis_uhrzeit }, hatAenderung: false };
         await db.collection('daten').updateOne({ id: "main" }, { $push: { termine: neuerTermin } });
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fehler beim Anlegen" }); }
@@ -130,13 +132,6 @@ app.delete('/api/planer/termin/:id', async (req, res) => {
 });
 
 // --- MITARBEITER VERWALTUNG ---
-app.post('/api/planer/mitarbeiter', async (req, res) => {
-    try {
-        await db.collection('daten').updateOne({ id: "main" }, { $push: { mitarbeiterListe: { name: req.body.name, passwort: "cito2026" } } });
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Fehler beim Anlegen" }); }
-});
-
 app.delete('/api/planer/mitarbeiter/:name', async (req, res) => {
     try {
         await db.collection('daten').updateOne({ id: "main" }, { $pull: { mitarbeiterListe: { name: req.params.name } } });
