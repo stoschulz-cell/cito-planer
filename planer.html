@@ -20,16 +20,12 @@
                     <input id="new-ma" placeholder="Neuer Name" class="border p-2 w-full text-sm rounded mb-2">
                     <button onclick="mitarbeiterAnlegen()" class="bg-blue-600 text-white w-full py-2 rounded text-sm hover:bg-blue-700">Mitarbeiter Anlegen</button>
                 </div>
-
                 <div class="mt-8 border-t pt-4">
                     <h3 class="font-bold mb-2">Termin eintragen</h3>
                     <select id="termin-ma" class="w-full border p-2 mb-2 text-sm rounded"></select>
                     <input id="termin-kunde" placeholder="Kunde" class="w-full border p-2 mb-2 text-sm rounded">
                     <input id="termin-datum" type="date" class="w-full border p-2 mb-2 text-sm rounded">
-                    <div class="flex gap-2 mb-2">
-                        <input id="termin-von" type="time" class="w-full border p-2 text-sm rounded">
-                        <input id="termin-bis" type="time" class="w-full border p-2 text-sm rounded">
-                    </div>
+                    <div class="flex gap-2 mb-2"><input id="termin-von" type="time" class="w-full border p-2 text-sm rounded"><input id="termin-bis" type="time" class="w-full border p-2 text-sm rounded"></div>
                     <button onclick="terminAnlegen()" class="bg-green-600 text-white w-full py-2 rounded text-sm hover:bg-green-700">Speichern</button>
                 </div>
             </div>
@@ -42,12 +38,7 @@
                 </div>
                 <table class="w-full border-collapse border">
                     <thead>
-                        <tr class="bg-gray-100 text-left text-xs">
-                            <th class="p-2 border">Mitarbeiter</th>
-                            <th class="p-2 border">Mo</th><th class="p-2 border">Di</th>
-                            <th class="p-2 border">Mi</th><th class="p-2 border">Do</th>
-                            <th class="p-2 border">Fr</th><th class="p-2 border">Sa</th><th class="p-2 border">So</th>
-                        </tr>
+                        <tr id="table-header" class="bg-gray-100 text-left text-xs"></tr>
                     </thead>
                     <tbody id="matrix-body"></tbody>
                 </table>
@@ -63,21 +54,7 @@
             const res = await fetch('/api/planer/dashboard');
             const d = await res.json();
             
-            // KW Titel
             document.getElementById('kw-titel').innerText = `Kalenderwoche: ${getKW(aktuellerMontag)}`;
-
-            // Sidebar
-            document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
-                <div class="flex justify-between items-center text-sm p-2 border-b">
-                    <span>${m.name}</span>
-                    <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold">✕</button>
-                </div>
-            `).join('');
-
-            // Dropdown
-            document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
-
-            // Tage berechnen
             let tage = [];
             for(let i=0; i<7; i++) {
                 let tag = new Date(aktuellerMontag);
@@ -85,57 +62,35 @@
                 tage.push(tag.toISOString().split('T')[0]);
             }
 
-            // Matrix
+            // Header mit Datum
+            const wochentage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+            document.getElementById('table-header').innerHTML = '<th class="p-2 border">Mitarbeiter</th>' + 
+                tage.map((t, i) => `<th class="p-2 border">${wochentage[i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('');
+
             document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => `
                 <tr>
                     <td class="p-2 border font-medium text-sm">${m.name}</td>
                     ${tage.map(t => {
                         const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
-                        return `<td class="p-2 border text-[10px] h-16 align-top">${termin ? `<b>${termin.kunde}</b><br>${termin.von_uhrzeit}` : ''}</td>`;
+                        return `<td class="p-2 border text-[10px] h-16 align-top">
+                            ${termin ? `<b>${termin.kunde}</b><br>${termin.von_uhrzeit} <button onclick="terminLoeschen(${termin.id})" class="text-red-500 font-bold ml-1">✕</button>` : ''}
+                        </td>`;
                     }).join('')}
                 </tr>
             `).join('');
+            
+            document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
         }
 
-        function getKW(date) {
-            let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-            return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1)/7);
-        }
-
-        function wocheBlaettern(n) {
-            aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7));
-            ladeDashboard();
-        }
-
-        async function mitarbeiterAnlegen() {
-            const name = document.getElementById('new-ma').value;
-            if(!name) return;
-            await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
-            document.getElementById('new-ma').value = '';
-            ladeDashboard();
-        }
-
-        async function mitarbeiterLoeschen(name) {
-            if(confirm(`Wirklich ${name} löschen?`)) {
-                await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' });
+        async function terminLoeschen(id) {
+            if(confirm("Termin wirklich löschen?")) {
+                await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' });
                 ladeDashboard();
             }
         }
 
-        async function terminAnlegen() {
-            const termin = {
-                mitarbeiter: document.getElementById('termin-ma').value,
-                kunde: document.getElementById('termin-kunde').value,
-                datum: document.getElementById('termin-datum').value,
-                von_uhrzeit: document.getElementById('termin-von').value,
-                bis_uhrzeit: document.getElementById('termin-bis').value
-            };
-            await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(termin) });
-            alert("Termin gespeichert!");
-            ladeDashboard();
-        }
-
+        // ... (restliche Funktionen: mitarbeiterAnlegen, mitarbeiterLoeschen, wocheBlaettern, terminAnlegen)
+        // WICHTIG: Füge in server.js die neue Route app.delete('/api/planer/termin/:id') hinzu!
         window.onload = ladeDashboard;
     </script>
 </body>

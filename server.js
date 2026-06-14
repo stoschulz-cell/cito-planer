@@ -68,6 +68,7 @@ app.post('/api/planer/mitarbeiter', async (req, res) => {
         res.status(500).json({ error: "Fehler beim Speichern" });
     }
 });
+
 // --- MITARBEITER LÖSCHEN ---
 app.delete('/api/planer/mitarbeiter/:name', async (req, res) => {
     try {
@@ -81,6 +82,7 @@ app.delete('/api/planer/mitarbeiter/:name', async (req, res) => {
         res.status(500).json({ error: "Fehler beim Löschen" });
     }
 });
+
 // --- TERMIN ANLEGEN ---
 app.post('/api/planer/termin', async (req, res) => {
     try {
@@ -92,5 +94,19 @@ app.post('/api/planer/termin', async (req, res) => {
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: "Fehler beim Speichern" });
+    }
+});
+
+// --- TERMIN LÖSCHEN ---
+app.delete('/api/planer/termin/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        await db.collection('daten').updateOne(
+            { id: "main" }, 
+            { $pull: { termine: { id: id } } }
+        );
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: "Fehler beim Löschen des Termins" });
     }
 });
