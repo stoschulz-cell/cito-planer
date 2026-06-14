@@ -7,16 +7,29 @@
 </head>
 <body class="bg-gray-100 p-5">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded shadow">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-xl font-bold">Dienstplan Übersicht</h1>
-            <div id="status-display" class="text-sm font-bold text-blue-600 italic">Lade...</div>
-            <div class="flex items-center gap-4">
-                <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">« Vorherige</button>
-                <h2 id="kw-titel" class="font-bold text-lg text-blue-900 w-40 text-center">KW ...</h2>
-                <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">Nächste »</button>
-                <button onclick="window.location.href='index.html'" class="bg-red-500 text-white px-4 py-2 rounded text-sm font-bold">Abmelden</button>
+        <div class="flex flex-col gap-6 mb-6">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold">Dienstplan Übersicht</h1>
+                <div id="status-display" class="text-sm font-bold text-blue-600 italic">Lade...</div>
+                <div class="flex items-center gap-4">
+                    <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">« Vorherige</button>
+                    <h2 id="kw-titel" class="font-bold text-lg text-blue-900 w-40 text-center">KW ...</h2>
+                    <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">Nächste »</button>
+                    <button onclick="window.location.href='index.html'" class="bg-red-500 text-white px-4 py-2 rounded text-sm font-bold">Abmelden</button>
+                </div>
+            </div>
+
+            <div class="p-4 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
+                <h3 class="font-bold text-sm mb-2 text-blue-800">Wunschfrei / Termin melden:</h3>
+                <div class="flex flex-wrap gap-3 items-center">
+                    <input type="date" id="wunsch-datum" class="p-2 border rounded text-sm">
+                    <input type="time" id="wunsch-zeit" class="p-2 border rounded text-sm">
+                    <input type="text" id="wunsch-grund" placeholder="Grund (z.B. Arzt)" class="p-2 border rounded text-sm flex-grow">
+                    <button onclick="wunschSenden()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700">Absenden</button>
+                </div>
             </div>
         </div>
+
         <div id="plan-container"><p class="p-10 text-center">Lade Plan...</p></div>
     </div>
 
@@ -47,18 +60,45 @@
             ladeUebersicht(); 
         }
 
+        // Funktion zum Absenden des Wunsch-Termins
+        async function wunschSenden() {
+            const datum = document.getElementById('wunsch-datum').value;
+            const zeit = document.getElementById('wunsch-zeit').value;
+            const grund = document.getElementById('wunsch-grund').value;
+
+            if (!datum || !grund) return alert("Bitte Datum und Grund angeben!");
+
+            try {
+                const response = await fetch('/api/mitarbeiter/wunsch-einreichen', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ mitarbeiter: meinName, datum, zeit, grund, status: 'pending' })
+                });
+                
+                if (response.ok) {
+                    alert("Wunsch wurde an den Planer gesendet!");
+                    document.getElementById('wunsch-datum').value = '';
+                    document.getElementById('wunsch-grund').value = '';
+                    document.getElementById('wunsch-zeit').value = '';
+                } else {
+                    alert("Fehler beim Senden des Wunsches.");
+                }
+            } catch (e) {
+                console.error("Fehler:", e);
+                alert("Verbindungsfehler!");
+            }
+        }
+
         async function ladeUebersicht() {
             try {
                 const res = await fetch('/api/planer/dashboard');
                 const d = await res.json();
                 
-                // --- KORREKTE ISO-8601 KW BERECHNUNG ---
                 let d2 = new Date(aktuellerMontag);
-                d2.setDate(d2.getDate() + 4 - (d2.getDay() || 7)); // Auf Donnerstag setzen
+                d2.setDate(d2.getDate() + 4 - (d2.getDay() || 7));
                 let jahrStart = new Date(d2.getFullYear(), 0, 1);
                 let kw = Math.ceil((((d2 - jahrStart) / 86400000) + 1) / 7);
                 document.getElementById('kw-titel').innerText = `KW ${kw}`;
-                // ---------------------------------------
 
                 let tage = [];
                 for(let i=0; i<7; i++) {
@@ -98,7 +138,6 @@
             const neuesDatum = prompt("Neues Datum (YYYY-MM-DD):", datum);
             if (!neuesDatum) return;
 
-            // Wochensperre: Prüfen, ob das neue Datum innerhalb der aktuellen Woche liegt
             const gewaehltesDatum = new Date(neuesDatum);
             let wochenEnde = new Date(aktuellerMontag);
             wochenEnde.setDate(wochenEnde.getDate() + 6);
