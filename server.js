@@ -15,11 +15,12 @@ async function startServer() {
         await client.connect();
         db = client.db("CitoCareDB");
         app.listen(port, '0.0.0.0');
-        console.log("Server läuft.");
-    } catch (err) { console.error(err); }
+        console.log("Server läuft auf Port " + port);
+    } catch (err) { console.error("Verbindungsfehler:", err); }
 }
 startServer();
 
+// LOGIN
 app.post('/api/login', async (req, res) => {
     const { name } = req.body;
     const data = await db.collection('daten').findOne({ id: "main" });
@@ -33,7 +34,18 @@ app.post('/api/login', async (req, res) => {
     else res.status(401).json({ error: "Name nicht gefunden" });
 });
 
+// DASHBOARD DATEN (Hier werden alle Arrays mitgeschickt!)
 app.get('/api/planer/dashboard', async (req, res) => {
-    const data = await db.collection('daten').findOne({ id: "main" });
-    res.json(data || { mitarbeiter: [], termine: [] });
+    try {
+        const data = await db.collection('daten').findOne({ id: "main" });
+        // Sende alle Felder, die dein Frontend erwartet
+        res.json(data || { 
+            mitarbeiter: [], 
+            termine: [], 
+            wunschfrei: [], 
+            wunschtermineKlienten: [] 
+        });
+    } catch (err) {
+        res.status(500).json({ error: "Fehler beim Laden" });
+    }
 });
