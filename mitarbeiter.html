@@ -7,13 +7,23 @@
 </head>
 <body class="bg-gray-100 p-5">
     <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
-        <h1 class="text-xl font-bold mb-4">Meine Termine - <span id="ma-name"></span></h1>
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold">Meine Termine - <span id="ma-name"></span></h1>
+            <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-3 py-1 rounded text-sm">«</button>
+            <span id="kw-titel" class="font-bold"></span>
+            <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-3 py-1 rounded text-sm">»</button>
+        </div>
+        
         <div id="meine-ansicht" class="space-y-4">Lade Termine...</div>
+        
         <button onclick="window.location.href='index.html'" class="mt-6 bg-red-500 text-white px-4 py-2 rounded">Abmelden</button>
     </div>
 
     <script>
         const meinName = localStorage.getItem('mitarbeiterName');
+        let aktuellerMontag = new Date();
+        aktuellerMontag.setDate(aktuellerMontag.getDate() - (aktuellerMontag.getDay() + 6) % 7);
+
         document.getElementById('ma-name').innerText = meinName;
 
         function getKwId(date) {
@@ -26,37 +36,60 @@
         async function ladeMitarbeiterAnsicht() {
             const res = await fetch('/api/planer/dashboard');
             const d = await res.json();
-            const kwId = getKwId(new Date());
+            const kwId = getKwId(aktuellerMontag);
+            
+            document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]} (${kwId.split('-')[0]})`;
 
             if (!d.freigaben?.[kwId]) {
-                document.getElementById('meine-ansicht').innerHTML = `<p class="text-red-500 font-bold">Der Dienstplan für diese Woche wurde noch nicht freigegeben.</p>`;
+                document.getElementById('meine-ansicht').innerHTML = `<p class="text-red-500 p-4 border border-red-200 bg-red-50 rounded">Der Dienstplan für diese Woche wurde noch nicht freigegeben.</p>`;
                 return;
             }
 
-            const meineTermine = d.termine.filter(t => t.mitarbeiter === meinName);
-            
-            document.getElementById('meine-ansicht').innerHTML = meineTermine.map(t => `
-                <div class="p-4 border rounded ${t.istGeaendert ? 'bg-orange-50 border-orange-400' : 'bg-blue-50'}">
-                    <p class="font-bold">${t.kunde} (${t.datum})</p>
-                    <div class="flex gap-2 mt-2">
-                        <input type="time" id="von-${t.id}" value="${t.von_uhrzeit}" class="border p-1">
-                        <input type="time" id="bis-${t.id}" value="${t.bis_uhrzeit}" class="border p-1">
-                        <button onclick="terminAendern(${t.id})" class="bg-green-600 text-white px-3 py-1 rounded text-sm">Speichern</button>
+            // Filtere nur Termine für die aktuell gewählte Woche
+            const meineTermine = (d.termine || []).filter(t => t.mitarbeiter === meinName);
+            // Wir berechnen den Zeitraum der KW
+            let montag = new Date(aktuellerMontag);
+            let sonntag = new Date(aktuellerMontag);
+            sonntag.setDate(sonntag.getDate() + 6);
+
+            const terminInWoche = meineTermine.filter(t => {
+                let datum = new Date(t.datum);
+                return datum >= montag && datum <= sonntag;
+            });
+
+            if (terminInWoche.length === 0) {
+                document.getElementById('meine-ansicht').innerHTML = "<p>Keine Termine in dieser Woche.</p>";
+            } else {
+                document.getElementById('meine-ansicht').innerHTML = terminInWoche.map(t => `
+                    <div class="p-4 border rounded ${t.istGeaendert ? 'bg-orange-50 border-orange-400' : 'bg-blue-50 border-blue-200'}">
+                        <div class="flex justify-between items-center">
+                            <p class="font-bold">${t.kunde} <span class="text-sm font-normal text-gray-500">(${t.datum})</span></p>
+                            ${t.istGeaendert ? '<span class="text-[10px] bg-orange-200 px-2 rounded">Geändert</span>' : ''}
+                        </div>
+                        <div class="flex gap-2 mt-2">
+                            <input type="time" id="von-${t.id}" value="${t.von_uhrzeit}" class="border p-1">
+                            <input type="time" id="bis-${t.id}" value="${t.bis_uhrzeit}" class="border p-1">
+                            <button onclick="terminAendern(${t.id})" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">Änderung speichern</button>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+            }
+        }
+
+        function wocheBlaettern(n) { 
+            aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7)); 
+            ladeMitarbeiterAnsicht(); 
         }
 
         async function terminAendern(id) {
             const von = document.getElementById(`von-${id}`).value;
             const bis = document.getElementById(`bis-${id}`).value;
-            
             await fetch('/api/mitarbeiter/termin/update', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ id, von, bis, geaendertVon: meinName })
             });
-            alert("Termin angepasst!");
+            alert("Änderung übermittelt!");
             ladeMitarbeiterAnsicht();
         }
 
