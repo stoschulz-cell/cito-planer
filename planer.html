@@ -52,32 +52,45 @@
     </div>
 
     <script>
-        async function ladeDashboard() {
-            const res = await fetch('/api/planer/dashboard');
-            const d = await res.json();
-            
-            // Sidebar rendern
-            document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
-                <div class="flex justify-between items-center text-sm p-2 border-b">
-                    <span>${m.name}</span>
-                    <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold">✕</button>
-                </div>
-            `).join('');
+    async function ladeDashboard() {
+    const res = await fetch('/api/planer/dashboard');
+    const d = await res.json();
+    
+    // Mitarbeiter-Liste rendern
+    document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
+        <div class="flex justify-between items-center text-sm p-2 border-b">
+            <span>${m.name}</span>
+            <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold">✕</button>
+        </div>
+    `).join('');
 
-            // Dropdown für Termin-MA füllen
-            document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => 
-                `<option value="${m.name}">${m.name}</option>`).join('');
+    // Dropdown füllen
+    document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => 
+        `<option value="${m.name}">${m.name}</option>`).join('');
 
-            // Matrix rendern
-            document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => `
-                <tr>
-                    <td class="p-2 border font-medium">${m.name}</td>
-                    <td class="p-2 border">-</td><td class="p-2 border">-</td>
-                    <td class="p-2 border">-</td><td class="p-2 border">-</td>
-                    <td class="p-2 border">-</td>
-                </tr>
-            `).join('');
-        }
+    // --- NEU: Matrix mit Terminen füllen ---
+    // Wir nehmen an, die Spalten sind Mo, Di, Mi, Do, Fr
+    const wochentage = ['Mo', 'Di', 'Mi', 'Do', 'Fr'];
+    
+    document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => {
+        // Suche alle Termine für diesen Mitarbeiter
+        const termineMA = (d.termine || []).filter(t => t.mitarbeiter === m.name);
+        
+        let zeile = `<tr><td class="p-2 border font-medium">${m.name}</td>`;
+        
+        // Erstelle für jeden Wochentag eine Zelle
+        wochentage.forEach(tag => {
+            // Prüfe, ob an diesem Wochentag ein Termin existiert
+            const terminAmTag = termineMA.find(t => t.datum === tag); // Hier müsste noch ein Datums-Abgleich rein
+            zeile += `<td class="p-2 border text-xs">
+                ${terminAmTag ? `<b>${terminAmTag.kunde}</b><br>${terminAmTag.von_uhrzeit}` : '-'}
+            </td>`;
+        });
+        
+        zeile += `</tr>`;
+        return zeile;
+    }).join('');
+}
 
         async function mitarbeiterAnlegen() {
             const name = document.getElementById('new-ma').value;
