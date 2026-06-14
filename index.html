@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Cito Care Zentrale</title>
+    <title>Cito Care System</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 p-5">
@@ -15,49 +15,37 @@
 
     <div id="planer-view" class="hidden max-w-6xl mx-auto">
         <div class="bg-blue-700 p-4 rounded-t-xl text-white flex justify-between">
-            <div>
-                <h1 class="text-xl font-bold">Cito Care Zentrale</h1>
-                <p class="text-xs opacity-80">Einsatzplanung & Dokumentation</p>
-            </div>
+            <div><h1 class="text-xl font-bold">Cito Care Zentrale</h1><p class="text-xs">Planer-Ansicht</p></div>
             <button onclick="location.reload()" class="bg-red-500 px-3 py-1 rounded text-sm">Abmelden</button>
         </div>
-        
         <div class="bg-white p-4 shadow rounded-b-xl grid grid-cols-3 gap-6">
             <div class="col-span-1 border-r pr-4">
-                <h3 class="font-bold mb-2">Offene Wunschfrei-Anträge</h3>
-                <div id="wunschfrei-liste" class="text-sm text-gray-600"></div>
-                <h3 class="font-bold mt-6 mb-2">Klienten-Pool</h3>
-                <div id="klienten-liste" class="text-sm text-gray-600"></div>
+                <h3 class="font-bold mb-2">Wunschfrei</h3>
+                <div id="wunschfrei-liste" class="text-sm"></div>
             </div>
-
             <div class="col-span-2">
-                <div class="flex items-center gap-4 mb-4">
-                    <button onclick="wocheWechseln(-7)" class="bg-gray-200 px-3 py-1 rounded">◀</button>
-                    <span id="kw-anzeige" class="font-bold">Woche...</span>
-                    <button onclick="wocheWechseln(7)" class="bg-gray-200 px-3 py-1 rounded">▶</button>
-                </div>
-                
                 <table class="w-full border-collapse mb-6">
                     <tr class="bg-gray-100"><th class="p-2 border">Mitarbeiter</th><th class="p-2 border">Termine</th></tr>
                     <tbody id="matrix-body"></tbody>
                 </table>
-
                 <div class="bg-gray-50 p-4 rounded border">
                     <h3 class="font-bold text-sm mb-2">Termin einplanen</h3>
-                    <div class="grid grid-cols-1 gap-2">
-                        <select id="termin-ma" class="p-2 border rounded text-sm"></select>
-                        <input id="termin-kunde" placeholder="Kunde" class="p-2 border rounded text-sm">
-                        <input id="termin-datum" type="date" class="p-2 border rounded text-sm">
-                        <button onclick="terminEintragen()" class="bg-blue-600 text-white p-2 rounded text-sm">Eintragen</button>
-                    </div>
+                    <select id="termin-ma" class="p-2 border w-full mb-2"></select>
+                    <input id="termin-kunde" placeholder="Kunde" class="p-2 border w-full mb-2">
+                    <input id="termin-datum" type="date" class="p-2 border w-full mb-2">
+                    <button onclick="terminEintragen()" class="bg-blue-600 text-white w-full p-2 rounded">Eintragen</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        let fokusDatum = new Date();
+    <div id="mitarbeiter-view" class="hidden max-w-2xl mx-auto bg-white p-6 rounded shadow">
+        <h1 class="text-xl font-bold mb-4">Meine Termine</h1>
+        <div id="meine-termine-liste" class="mb-6"></div>
+        <button onclick="location.reload()" class="bg-red-500 text-white px-4 py-2 rounded">Abmelden</button>
+    </div>
 
+    <script>
         async function login() {
             const name = document.getElementById('nameInput').value;
             const res = await fetch('/api/login', {
@@ -69,8 +57,13 @@
             if (res.ok) {
                 const data = await res.json();
                 document.getElementById('login-view').classList.add('hidden');
-                document.getElementById('planer-view').classList.remove('hidden');
-                ladeDashboard();
+                if (data.role === 'planer') {
+                    document.getElementById('planer-view').classList.remove('hidden');
+                    ladeDashboard();
+                } else {
+                    document.getElementById('mitarbeiter-view').classList.remove('hidden');
+                    loadMitarbeiterAnsicht(name);
+                }
             } else { alert("Name nicht gefunden."); }
         }
 
@@ -78,49 +71,35 @@
             const res = await fetch('/api/planer/dashboard');
             const d = await res.json();
             
-            document.getElementById('kw-anzeige').innerText = "Woche " + getKW(fokusDatum);
-            
-            // Tabelle
             document.getElementById('matrix-body').innerHTML = d.mitarbeiter.map(m => {
                 const termine = (d.termine || []).filter(t => t.mitarbeiter === m);
-                return `<tr>
-                    <td class="p-2 border font-bold">${m}</td>
-                    <td class="p-2 border">${termine.map(t => `<span class="bg-blue-100 px-2 py-1 rounded text-xs">${t.kunde}</span>`).join(' ')}</td>
-                </tr>`;
+                return `<tr><td class="p-2 border font-bold">${m}</td><td class="p-2 border">${termine.map(t => `<span class="bg-blue-100 px-2 py-1 rounded text-xs">${t.kunde}</span>`).join(' ')}</td></tr>`;
             }).join('');
-
-            // Dropdown
-            document.getElementById('termin-ma').innerHTML = d.mitarbeiter.map(m => `<option value="${m}">${m}</option>`).join('');
             
-            // Wünsche & Klienten
+            document.getElementById('termin-ma').innerHTML = d.mitarbeiter.map(m => `<option value="${m}">${m}</option>`).join('');
             document.getElementById('wunschfrei-liste').innerHTML = (d.wunschfrei || []).map(w => `<div class="p-1 text-xs border-b">${w.name}</div>`).join('');
-            document.getElementById('klienten-liste').innerHTML = (d.wunschtermineKlienten || []).map(k => `<div class="p-1 text-xs border-b">${k.name}</div>`).join('');
+        }
+
+        async function loadMitarbeiterAnsicht(name) {
+            const res = await fetch('/api/planer/dashboard');
+            const d = await res.json();
+            const meine = d.termine.filter(t => t.mitarbeiter === name);
+            document.getElementById('meine-termine-liste').innerHTML = meine.length > 0 
+                ? meine.map(t => `<div class="p-2 border-b">${t.kunde} am ${t.datum}</div>`).join('') 
+                : "Keine Termine.";
         }
 
         async function terminEintragen() {
-            const data = {
-                mitarbeiter: document.getElementById('termin-ma').value,
-                kunde: document.getElementById('termin-kunde').value,
-                datum: document.getElementById('termin-datum').value
-            };
             await fetch('/api/planer/termin-eintragen', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
+                body: JSON.stringify({
+                    mitarbeiter: document.getElementById('termin-ma').value,
+                    kunde: document.getElementById('termin-kunde').value,
+                    datum: document.getElementById('termin-datum').value
+                })
             });
             ladeDashboard();
-        }
-
-        function wocheWechseln(tage) {
-            fokusDatum.setDate(fokusDatum.getDate() + tage);
-            ladeDashboard();
-        }
-
-        function getKW(d) {
-            let t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-            t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
-            let jahr = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-            return Math.ceil((((t - jahr) / 86400000) + 1) / 7);
         }
     </script>
 </body>
