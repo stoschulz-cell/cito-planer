@@ -2,13 +2,13 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Cito Care Dienstplan Übersicht</title>
+    <title>Cito Care Dienstplan</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 p-5">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded shadow">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-xl font-bold">Dienstplan - Übersicht</h1>
+            <h1 class="text-xl font-bold">Dienstplan Übersicht</h1>
             <div class="flex items-center gap-4">
                 <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">« Vorherige</button>
                 <h2 id="kw-titel" class="font-bold text-lg text-blue-900 w-40 text-center"></h2>
@@ -17,13 +17,8 @@
             </div>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full border-collapse border shadow-sm">
-                <thead>
-                    <tr id="table-header" class="bg-blue-50 text-left text-xs uppercase text-blue-900"></tr>
-                </thead>
-                <tbody id="matrix-body" class="bg-white"></tbody>
-            </table>
+        <div id="plan-container">
+            <p class="text-center p-10 text-gray-500">Lade Plan...</p>
         </div>
     </div>
 
@@ -40,45 +35,65 @@
         }
 
         async function ladeUebersicht() {
-            const res = await fetch('/api/planer/dashboard');
-            const d = await res.json();
-            const kwId = getKwId(aktuellerMontag);
-            
-            document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
+            const container = document.getElementById('plan-container');
+            try {
+                const res = await fetch('/api/planer/dashboard');
+                const d = await res.json();
+                const kwId = getKwId(aktuellerMontag);
+                
+                document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
 
-            let tage = [];
-            for(let i=0; i<7; i++) {
-                let tag = new Date(aktuellerMontag);
-                tag.setDate(tag.getDate() + i);
-                tage.push(tag.toISOString().split('T')[0]);
+                const istFreigegeben = d.freigaben?.[kwId] === true;
+
+                if (!istFreigegeben) {
+                    container.innerHTML = `
+                        <div class="p-10 text-center border-2 border-dashed rounded bg-yellow-50">
+                            <h2 class="text-xl font-bold text-yellow-800">Plan ist ENTWURF</h2>
+                            <p class="text-yellow-600 mt-2">Der Dienstplan für diese Woche wurde noch nicht freigegeben.</p>
+                        </div>`;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse border shadow-sm">
+                            <thead><tr id="table-header" class="bg-blue-50 text-left text-xs uppercase text-blue-900"></tr></thead>
+                            <tbody id="matrix-body" class="bg-white"></tbody>
+                        </table>
+                    </div>`;
+
+                let tage = [];
+                for(let i=0; i<7; i++) {
+                    let tag = new Date(aktuellerMontag);
+                    tag.setDate(tag.getDate() + i);
+                    tage.push(tag.toISOString().split('T')[0]);
+                }
+
+                // Kopfzeile OHNE Gesamt-Spalte
+                document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
+                    tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('');
+
+                // Zeilen OHNE Gesamt-Spalte
+                document.getElementById('matrix-body').innerHTML = (d.mitarbeiterListe || []).map(m => {
+                    const termineMA = (d.termine || []).filter(x => x.mitarbeiter === m.name && tage.includes(x.datum));
+                    return `
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-3 border font-semibold text-sm text-gray-700">${m.name}</td>
+                            ${tage.map(t => {
+                                const termineDesTages = termineMA.filter(x => x.datum === t);
+                                return `<td class="p-2 border text-[11px] h-20 align-top">
+                                    ${termineDesTages.map(termin => `
+                                        <div class="p-1 rounded border mb-1 bg-blue-100 border-blue-200">
+                                            <b>${termin.kunde}</b><br>${termin.von_uhrzeit}-${termin.bis_uhrzeit}
+                                        </div>`).join('')}
+                                </td>`;
+                            }).join('')}
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                container.innerHTML = "<p class='text-red-500'>Fehler beim Laden.</p>";
             }
-
-            document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
-                tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('') +
-                '<th class="p-3 border">Gesamt</th>';
-
-            document.getElementById('matrix-body').innerHTML = (d.mitarbeiterListe || []).map(m => {
-                const termineMA = (d.termine || []).filter(x => x.mitarbeiter === m.name && tage.includes(x.datum));
-                return `
-                    <tr class="hover:bg-gray-50">
-                        <td class="p-3 border font-semibold text-sm text-gray-700">${m.name}</td>
-                        ${tage.map(t => {
-                            const termineDesTages = termineMA.filter(x => x.datum === t);
-                            return `<td class="p-2 border text-[11px] h-20 align-top">
-                                ${termineDesTages.map(termin => `
-                                    <div class="p-1 rounded border mb-1 bg-blue-100 border-blue-200">
-                                        <b>${termin.kunde}</b><br>${termin.von_uhrzeit}-${termin.bis_uhrzeit}
-                                    </div>`).join('')}
-                            </td>`;
-                        }).join('')}
-                        <td class="p-3 border font-bold text-center bg-gray-100">${(termineMA.reduce((s,t) => {
-                            let [sH, sM] = t.von_uhrzeit.split(':').map(Number);
-                            let [eH, eM] = t.bis_uhrzeit.split(':').map(Number);
-                            return s + ((eH * 60 + eM) - (sH * 60 + sM))/60;
-                        }, 0)).toFixed(1)}</td>
-                    </tr>
-                `;
-            }).join('');
         }
 
         function wocheBlaettern(n) { 
