@@ -22,30 +22,6 @@
         </div>
     </div>
 
-   <!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <title>Cito Care Dienstplan</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 p-5">
-    <div class="max-w-7xl mx-auto bg-white p-6 rounded shadow">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-xl font-bold">Dienstplan Übersicht</h1>
-            <div class="flex items-center gap-4">
-                <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">« Vorherige</button>
-                <h2 id="kw-titel" class="font-bold text-lg text-blue-900 w-40 text-center"></h2>
-                <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">Nächste »</button>
-                <button onclick="window.location.href='index.html'" class="bg-red-500 text-white px-4 py-2 rounded text-sm font-bold">Abmelden</button>
-            </div>
-        </div>
-
-        <div id="plan-container">
-            <p class="text-center p-10 text-gray-500">Lade Plan...</p>
-        </div>
-    </div>
-
     <script>
         const meinName = localStorage.getItem('mitarbeiterName') || "";
         let aktuellerMontag = new Date();
@@ -61,6 +37,8 @@
 
         async function ladeUebersicht() {
             const container = document.getElementById('plan-container');
+            container.innerHTML = '<p class="text-center p-10 text-gray-500">Lade Plan...</p>';
+            
             try {
                 const res = await fetch('/api/planer/dashboard');
                 const d = await res.json();
@@ -100,22 +78,14 @@
                                 const termin = termineMA.find(x => x.datum === t);
                                 if (!termin) return '<td class="p-2 border"></td>';
                                 
-                                let v = { von: "00:00", bis: "00:00" };
-                                if (termin.original && termin.original.von) {
-                                    v = termin.hatAenderung ? termin.aktuell : termin.original;
-                                } else {
-                                    v = { von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00" };
-                                }
-                                
+                                let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
                                 const isOwner = m.name === meinName;
 
-                                return `<td class="p-2 border text-[11px] h-20 ${termin.hatAenderung ? 'bg-orange-100' : ''}">
+                                return `<td class="p-2 border text-[11px] h-20 ${termin.hatAenderung ? 'bg-orange-100' : ''} ${isOwner ? 'cursor-pointer hover:bg-blue-50' : ''}" 
+                                            ${isOwner ? `onclick="terminBearbeiten('${termin.id}', '${termin.kunde}', '${v.von}', '${v.bis}')"` : ''}>
                                     <b>${termin.kunde}</b><br>
-                                    ${isOwner ? `
-                                        <input type="time" id="von-${termin.id}" value="${v.von}" class="border w-16 text-xs block">
-                                        <input type="time" id="bis-${termin.id}" value="${v.bis}" class="border w-16 text-xs block mt-1">
-                                        <button onclick="terminVerschieben(${termin.id})" class="bg-blue-600 text-white px-2 py-1 text-[10px] mt-1 rounded">Verschieben</button>
-                                    ` : `${v.von}-${v.bis}`}
+                                    ${v.von} - ${v.bis}
+                                    ${termin.hatAenderung ? '<br><span class="text-orange-600 font-bold">Änderung offen</span>' : ''}
                                 </td>`;
                             }).join('')}
                         </tr>
@@ -124,17 +94,19 @@
             } catch (err) { container.innerHTML = "Fehler beim Laden."; }
         }
 
-        async function terminVerschieben(id) {
-            const neueVon = document.getElementById(`von-${id}`).value;
-            const neueBis = document.getElementById(`bis-${id}`).value;
-            // Nutzt die neue Route, die 'hatAenderung' auf true setzt
-            await fetch('/api/mitarbeiter/verschieben-als-aenderung', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ id, neueVon, neueBis })
-            });
-            alert("Änderung gespeichert! Der Planer wird informiert.");
-            ladeUebersicht();
+        async function terminBearbeiten(id, kunde, alteVon, alteBis) {
+            const neueVon = prompt(`Zeit anpassen für ${kunde} (von):`, alteVon);
+            const neueBis = prompt(`Zeit anpassen für ${kunde} (bis):`, alteBis);
+
+            if (neueVon && neueBis) {
+                await fetch('/api/mitarbeiter/verschieben-als-aenderung', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ id: Number(id), neueVon, neueBis })
+                });
+                alert("Änderung an Planer gesendet!");
+                ladeUebersicht();
+            }
         }
 
         function wocheBlaettern(n) { 
