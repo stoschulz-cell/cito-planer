@@ -1,41 +1,54 @@
 <script>
     const API_URL = "/api";
     let fokusDatum = new Date();
-    let ansichtsModus = "PLAN";
+    
+    // Sortierung der Mitarbeiter ändern
+    window.mitarbeiterVerschieben = async function(index, richtung) {
+        const antwort = await fetch(`${API_URL}/planer/dashboard`);
+        const daten = await antwort.json();
+        let liste = daten.mitarbeiter;
+        const zielIndex = index + richtung;
+        if (zielIndex >= 0 && zielIndex < liste.length) {
+            let temp = liste[index];
+            liste[index] = liste[zielIndex];
+            liste[zielIndex] = temp;
+            await fetch(`${API_URL}/planer/mitarbeiter/update-order`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ neueListe: liste })
+            });
+            window.ladeDashboard();
+        }
+    };
 
     window.ladeDashboard = async function() {
         const antwort = await fetch(`${API_URL}/planer/dashboard`);
         const daten = await antwort.json();
-        const wochenTage = getWochenDaten(fokusDatum);
-
-        // Sidebar & Dropdown füllen
-        document.getElementById('form-ma').innerHTML = daten.mitarbeiter.map(m => `<option value="${m}">${m}</option>`).join('');
-        document.getElementById('mitarbeiter-liste-sidebar').innerHTML = daten.mitarbeiter.map(m => `
+        
+        // Sidebar mit Pfeilen rendern
+        document.getElementById('mitarbeiter-liste-sidebar').innerHTML = daten.mitarbeiter.map((m, index) => `
             <div class="p-2 bg-gray-50 rounded-xl text-xs font-bold flex justify-between items-center border border-gray-100">
                 <span>${m}</span>
-                <button onclick="window.mitarbeiterLoeschen('${m}')" class="text-red-500">✕</button>
+                <div class="flex gap-1">
+                    <button onclick="window.mitarbeiterVerschieben(${index}, -1)" class="cursor-pointer">▲</button>
+                    <button onclick="window.mitarbeiterVerschieben(${index}, 1)" class="cursor-pointer">▼</button>
+                    <button onclick="window.mitarbeiterLoeschen('${m}')" class="text-red-500">✕</button>
+                </div>
             </div>`).join('');
 
+        // Matrix zeichnen
         const matrixBody = document.getElementById('matrix-body');
         matrixBody.innerHTML = "";
+        const wochenTage = getWochenDaten(fokusDatum);
 
-        // Mitarbeiter-Zeilen stabil zeichnen
         daten.mitarbeiter.forEach(m => {
             let row = document.createElement('tr');
-            row.className = "border-b";
             row.innerHTML = `<td class="p-3 font-bold border-r bg-gray-50 sticky left-0 z-10">${m}</td>`;
-
             wochenTage.forEach(tag => {
                 let cell = document.createElement('td');
                 cell.className = "p-2 border-r min-w-[150px] align-top";
-                
                 daten.termine.filter(t => t.mitarbeiter === m && t.datum === tag).forEach(t => {
-                    if ((ansichtsModus === "PLAN" && t.status !== 'IST-ZEIT') || (ansichtsModus === "IST" && t.status !== 'ORIGINAL_GEÄNDERT')) {
-                        cell.innerHTML += `
-                            <div class="border rounded-lg p-2 mb-2 text-[11px] cursor-pointer bg-blue-50" onclick="window.terminVerschiebenPrompt(${t.id})">
-                                <strong>${t.von_uhrzeit}</strong><br>${t.kunde}
-                            </div>`;
-                    }
+                    cell.innerHTML += `<div class="bg-blue-50 p-2 mb-1 rounded text-[10px] cursor-pointer" onclick="window.terminVerschiebenPrompt(${t.id})">${t.kunde}</div>`;
                 });
                 row.appendChild(cell);
             });
@@ -44,9 +57,9 @@
     };
 
     window.terminVerschiebenPrompt = async function(id) {
-        const neuesDatum = prompt("Neues Datum (YYYY-MM-DD):", "2026-06-15");
-        const neueVon = prompt("Neue Startzeit:", "08:00");
-        const neueBis = prompt("Neue Endzeit:", "10:00");
+        const neuesDatum = prompt("Datum (YYYY-MM-DD):");
+        const neueVon = prompt("Start:");
+        const neueBis = prompt("Ende:");
         if(neuesDatum) {
             await fetch(`${API_URL}/planer/verschieben`, {
                 method: 'POST',
@@ -56,7 +69,7 @@
             window.ladeDashboard();
         }
     };
-    
-    // Hilfsfunktionen beibehalten...
+
+    // ... (restliche Funktionen: mitarbeiterLoeschen, mitarbeiterAnlegen, etc.)
     window.ladeDashboard();
 </script>

@@ -20,20 +20,20 @@ async function startServer() {
 }
 startServer();
 
-// Dashboard Daten mit Sortierung abrufen
 app.get('/api/planer/dashboard', async (req, res) => {
     let data = await db.collection('daten').findOne({ id: "main" }) || 
                  { mitarbeiter: [], termine: [], wunschfrei: [], wunschtermineKlienten: [] };
-    
-    // Mitarbeiter sortieren: So bleiben sie an der gewünschten Position
-    if (data.mitarbeiter) {
-        data.mitarbeiter.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-    }
     res.json(data);
 });
 
 app.post('/api/planer/mitarbeiter', async (req, res) => {
     await db.collection('daten').updateOne({ id: "main" }, { $push: { mitarbeiter: req.body.name } }, { upsert: true });
+    res.sendStatus(200);
+});
+
+// NEU: Endpunkt zum Speichern der Reihenfolge
+app.post('/api/planer/mitarbeiter/update-order', async (req, res) => {
+    await db.collection('daten').updateOne({ id: "main" }, { $set: { mitarbeiter: req.body.neueListe } });
     res.sendStatus(200);
 });
 
@@ -60,12 +60,5 @@ app.post('/api/planer/verschieben', async (req, res) => {
     const alterTermin = data.termine.find(t => t.id === terminId);
     const neuerTermin = { ...alterTermin, id: Date.now(), datum: neuesDatum, von_uhrzeit: neueVon, bis_uhrzeit: neueBis, status: 'IST-ZEIT' };
     await db.collection('daten').updateOne({ id: "main" }, { $push: { termine: neuerTermin } });
-    res.sendStatus(200);
-});
-
-app.post('/api/planer/freigeben', async (req, res) => {
-    const data = await db.collection('daten').findOne({ id: "main" });
-    const updatedTermine = data.termine.map(t => t.status === 'PLANUNG' ? { ...t, status: 'FREIGEGEBEN' } : t);
-    await db.collection('daten').updateOne({ id: "main" }, { $set: { termine: updatedTermine } });
     res.sendStatus(200);
 });
