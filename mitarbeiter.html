@@ -8,7 +8,7 @@
 <body class="bg-gray-100 p-5">
     <div class="max-w-7xl mx-auto bg-white p-6 rounded shadow">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-xl font-bold">Dienstplan Übersicht</h1>
+            <h1 class="text-xl font-bold">Mein Dienstplan</h1>
             <div class="flex items-center gap-4">
                 <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">« Vorherige</button>
                 <h2 id="kw-titel" class="font-bold text-lg text-blue-900 w-40 text-center">KW ...</h2>
@@ -23,7 +23,6 @@
     </div>
 
     <script>
-        // Wir holen den Namen einmal und bereinigen ihn sofort
         const meinName = (localStorage.getItem('mitarbeiterName') || "").trim().toLowerCase();
         
         function formatDate(date) {
@@ -54,7 +53,6 @@
         }
 
         async function ladeUebersicht() {
-            const container = document.getElementById('plan-container');
             const res = await fetch('/api/planer/dashboard');
             const d = await res.json();
             const kwId = getKwId(aktuellerMontag);
@@ -74,11 +72,8 @@
             let bodyHtml = (d.mitarbeiterListe || []).map(m => {
                 const dbName = m.name.trim().toLowerCase();
                 const isOwner = (dbName === meinName);
-                
-                // Debug-Info in der Konsole falls der Button nicht erscheint
-                if(isOwner) console.log("Button wird für " + m.name + " angezeigt.");
-
                 let row = `<tr><td class="p-3 border font-bold">${m.name}</td>`;
+                
                 tage.forEach(t => {
                     const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
                     if (!termin) {
@@ -95,7 +90,7 @@
                 return row + `</tr>`;
             }).join('');
 
-            container.innerHTML = `<table class="w-full border-collapse border"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table>`;
+            document.getElementById('plan-container').innerHTML = `<table class="w-full border-collapse border"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table>`;
         }
 
         async function terminBearbeiten(id, altesDatum, alteVon, alteBis) {
