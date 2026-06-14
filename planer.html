@@ -84,27 +84,40 @@
             // Header rendern
             const wochentage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
             document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
-                tage.map((t, i) => `<th class="p-3 border">${wochentage[i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('');
+                tage.map((t, i) => `<th class="p-3 border">${wochentage[i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('') +
+                '<th class="p-3 border">Gesamt</th>';
 
             // Matrix rendern
-            document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => `
-                <tr class="hover:bg-gray-50">
-                    <td class="p-3 border font-semibold text-sm text-gray-700">${m.name}</td>
-                    ${tage.map(t => {
-                        const termineDesTages = (d.termine || []).filter(x => x.mitarbeiter === m.name && x.datum === t);
-                        
-                        return `<td class="p-2 border text-[11px] h-20 align-top">
-                            ${termineDesTages.map(termin => `
-                                <div class="bg-blue-100 p-1 rounded border border-blue-200 mb-1">
-                                    <b>${termin.kunde}</b><br>
-                                    ${termin.von_uhrzeit} - ${termin.bis_uhrzeit} Uhr
-                                    <button onclick="terminLoeschen(${termin.id})" class="text-red-600 font-bold block mt-1 hover:text-red-800">✕ Löschen</button>
-                                </div>
-                            `).join('')}
-                        </td>`;
-                    }).join('')}
-                </tr>
-            `).join('');
+            document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => {
+                const termineMA = (d.termine || []).filter(x => x.mitarbeiter === m.name && tage.includes(x.datum));
+                
+                // Stundenberechnung
+                let wochenStunden = termineMA.reduce((sum, t) => {
+                    let [startH, startM] = t.von_uhrzeit.split(':').map(Number);
+                    let [endeH, endeM] = t.bis_uhrzeit.split(':').map(Number);
+                    let diff = (endeH * 60 + endeM) - (startH * 60 + startM);
+                    return sum + (diff > 0 ? diff / 60 : 0);
+                }, 0);
+
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-3 border font-semibold text-sm text-gray-700">${m.name}</td>
+                        ${tage.map(t => {
+                            const termineDesTages = termineMA.filter(x => x.datum === t);
+                            return `<td class="p-2 border text-[11px] h-20 align-top">
+                                ${termineDesTages.map(termin => `
+                                    <div class="bg-blue-100 p-1 rounded border border-blue-200 mb-1">
+                                        <b>${termin.kunde}</b><br>
+                                        ${termin.von_uhrzeit} - ${termin.bis_uhrzeit} Uhr
+                                        <button onclick="terminLoeschen(${termin.id})" class="text-red-600 font-bold block mt-1 hover:text-red-800">✕ Löschen</button>
+                                    </div>
+                                `).join('')}
+                            </td>`;
+                        }).join('')}
+                        <td class="p-3 border font-bold text-center bg-gray-100">${wochenStunden.toFixed(1)} Std</td>
+                    </tr>
+                `;
+            }).join('');
             
             document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
         }
