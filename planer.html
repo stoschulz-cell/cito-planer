@@ -54,7 +54,6 @@
 
     <script>
         let aktuellerMontag = new Date();
-        // Setze auf den aktuellen Montag (UTC)
         let day = aktuellerMontag.getUTCDay();
         let diff = aktuellerMontag.getUTCDate() - day + (day === 0 ? -6 : 1);
         aktuellerMontag.setUTCDate(diff);
@@ -88,11 +87,13 @@
                         <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold px-2">✕</button>
                     </div>`).join('');
                 
+                // Wunsch Liste mit Grund-Anzeige
                 document.getElementById('wunsch-liste-sidebar').innerHTML = (wuensche || []).map(w => `
-                    <div class="p-2 bg-yellow-50 rounded border border-yellow-200">
-                        <p class="font-bold text-xs">${w.mitarbeiter}</p>
-                        <p class="text-[10px]">${w.datum} | ${w.zeit || ""} Uhr</p>
-                        <button onclick="wunschBestaetigen(${w.id})" class="bg-green-600 text-white w-full mt-1 py-1 rounded text-[10px]">Übernehmen</button>
+                    <div class="p-3 bg-yellow-50 rounded border border-yellow-200 mb-2">
+                        <p class="font-bold text-xs text-yellow-900">${w.mitarbeiter}</p>
+                        <p class="text-[10px] text-gray-600">${w.datum} | ${w.zeit || "---"}</p>
+                        <p class="text-[11px] font-medium text-blue-800 mt-1 italic">"${w.grund}"</p>
+                        <button onclick="wunschBestaetigen(${w.id})" class="bg-green-600 text-white w-full mt-2 py-1 rounded text-[10px] hover:bg-green-700">Als Termin übernehmen</button>
                     </div>`).join('');
 
                 document.getElementById('termin-ma').innerHTML = (d.mitarbeiterListe || []).map(m => `<option value="${m.name}">${m.name}</option>`).join('');
@@ -129,7 +130,6 @@
             ladeDashboard(); 
         }
 
-        // API Handler
         async function wunschBestaetigen(id) { await fetch('/api/planer/wunsch/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
         async function bestaetigen(id) { await fetch('/api/planer/termin/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
         async function terminAnlegen() { const t = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
