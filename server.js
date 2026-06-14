@@ -139,6 +139,16 @@ app.delete('/api/planer/mitarbeiter/:name', async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Fehler beim Löschen" }); }
 });
 
+app.post('/api/planer/mitarbeiter/hinzufuegen', async (req, res) => {
+    try {
+        const { name } = req.body;
+        await db.collection('daten').updateOne({ id: "main" }, { 
+            $push: { mitarbeiterListe: { name: name, passwort: "123" } } 
+        });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Fehler beim Hinzufügen" }); }
+});
+
 app.post('/api/planer/mitarbeiter/sortieren', async (req, res) => {
     try {
         const { name, richtung } = req.body;
