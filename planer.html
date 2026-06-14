@@ -18,7 +18,7 @@
                 <div id="mitarbeiter-liste-sidebar" class="space-y-2"></div>
                 <div class="mt-6 border-t pt-4">
                     <input id="new-ma" placeholder="Neuer Name" class="border p-2 w-full text-sm rounded mb-2">
-                    <button onclick="mitarbeiterAnlegen()" class="bg-blue-600 text-white w-full py-2 rounded text-sm hover:bg-blue-700">Anlegen</button>
+                    <button onclick="mitarbeiterAnlegen()" class="bg-blue-600 text-white w-full py-2 rounded text-sm hover:bg-blue-700">Mitarbeiter Anlegen</button>
                 </div>
 
                 <div class="mt-8 border-t pt-4">
@@ -35,14 +35,18 @@
             </div>
 
             <div class="col-span-3">
-                <h3 class="font-bold mb-4">Dienstplan-Matrix</h3>
+                <div class="flex justify-between items-center mb-4">
+                    <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-1 rounded text-sm">« Vorherige Woche</button>
+                    <h3 id="kw-titel" class="font-bold text-lg"></h3>
+                    <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-4 py-1 rounded text-sm">Nächste Woche »</button>
+                </div>
                 <table class="w-full border-collapse border">
                     <thead>
-                        <tr class="bg-gray-100 text-left">
+                        <tr class="bg-gray-100 text-left text-xs">
                             <th class="p-2 border">Mitarbeiter</th>
                             <th class="p-2 border">Mo</th><th class="p-2 border">Di</th>
                             <th class="p-2 border">Mi</th><th class="p-2 border">Do</th>
-                            <th class="p-2 border">Fr</th>
+                            <th class="p-2 border">Fr</th><th class="p-2 border">Sa</th><th class="p-2 border">So</th>
                         </tr>
                     </thead>
                     <tbody id="matrix-body"></tbody>
@@ -52,45 +56,57 @@
     </div>
 
     <script>
-    async function ladeDashboard() {
-    const res = await fetch('/api/planer/dashboard');
-    const d = await res.json();
-    
-    // Mitarbeiter-Liste rendern
-    document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
-        <div class="flex justify-between items-center text-sm p-2 border-b">
-            <span>${m.name}</span>
-            <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold">✕</button>
-        </div>
-    `).join('');
+        let aktuellerMontag = new Date();
+        aktuellerMontag.setDate(aktuellerMontag.getDate() - (aktuellerMontag.getDay() + 6) % 7);
 
-    // Dropdown füllen
-    document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => 
-        `<option value="${m.name}">${m.name}</option>`).join('');
+        async function ladeDashboard() {
+            const res = await fetch('/api/planer/dashboard');
+            const d = await res.json();
+            
+            // KW Titel
+            document.getElementById('kw-titel').innerText = `Kalenderwoche: ${getKW(aktuellerMontag)}`;
 
-    // --- NEU: Matrix mit Terminen füllen ---
-    // Wir nehmen an, die Spalten sind Mo, Di, Mi, Do, Fr
-    const wochentage = ['Mo', 'Di', 'Mi', 'Do', 'Fr'];
-    
-    document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => {
-        // Suche alle Termine für diesen Mitarbeiter
-        const termineMA = (d.termine || []).filter(t => t.mitarbeiter === m.name);
-        
-        let zeile = `<tr><td class="p-2 border font-medium">${m.name}</td>`;
-        
-        // Erstelle für jeden Wochentag eine Zelle
-        wochentage.forEach(tag => {
-            // Prüfe, ob an diesem Wochentag ein Termin existiert
-            const terminAmTag = termineMA.find(t => t.datum === tag); // Hier müsste noch ein Datums-Abgleich rein
-            zeile += `<td class="p-2 border text-xs">
-                ${terminAmTag ? `<b>${terminAmTag.kunde}</b><br>${terminAmTag.von_uhrzeit}` : '-'}
-            </td>`;
-        });
-        
-        zeile += `</tr>`;
-        return zeile;
-    }).join('');
-}
+            // Sidebar
+            document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
+                <div class="flex justify-between items-center text-sm p-2 border-b">
+                    <span>${m.name}</span>
+                    <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold">✕</button>
+                </div>
+            `).join('');
+
+            // Dropdown
+            document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+
+            // Tage berechnen
+            let tage = [];
+            for(let i=0; i<7; i++) {
+                let tag = new Date(aktuellerMontag);
+                tag.setDate(tag.getDate() + i);
+                tage.push(tag.toISOString().split('T')[0]);
+            }
+
+            // Matrix
+            document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => `
+                <tr>
+                    <td class="p-2 border font-medium text-sm">${m.name}</td>
+                    ${tage.map(t => {
+                        const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
+                        return `<td class="p-2 border text-[10px] h-16 align-top">${termin ? `<b>${termin.kunde}</b><br>${termin.von_uhrzeit}` : ''}</td>`;
+                    }).join('')}
+                </tr>
+            `).join('');
+        }
+
+        function getKW(date) {
+            let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+            return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1)/7);
+        }
+
+        function wocheBlaettern(n) {
+            aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7));
+            ladeDashboard();
+        }
 
         async function mitarbeiterAnlegen() {
             const name = document.getElementById('new-ma').value;
@@ -115,11 +131,7 @@
                 von_uhrzeit: document.getElementById('termin-von').value,
                 bis_uhrzeit: document.getElementById('termin-bis').value
             };
-            await fetch('/api/planer/termin', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify(termin) 
-            });
+            await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(termin) });
             alert("Termin gespeichert!");
             ladeDashboard();
         }
