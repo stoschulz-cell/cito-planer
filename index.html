@@ -2,97 +2,94 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Cito Care System</title>
+    <title>Cito Care Zentrale</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 p-5">
 
-    <div id="login-view" class="max-w-md mx-auto bg-white p-6 rounded shadow">
-        <h2 class="text-lg font-bold mb-4">Anmeldung</h2>
+    <div id="login-view" class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-bold mb-4">Anmeldung Cito Care</h2>
         <input id="nameInput" placeholder="Dein Name" class="border p-2 w-full mb-4 rounded">
         <button onclick="login()" class="bg-blue-600 text-white w-full p-2 rounded">Login</button>
     </div>
 
-    <div id="planer-view" class="hidden max-w-6xl mx-auto">
-        <div class="bg-blue-700 p-4 rounded-t-xl text-white flex justify-between">
-            <div><h1 class="text-xl font-bold">Cito Care Zentrale</h1><p class="text-xs">Planer-Ansicht</p></div>
-            <button onclick="location.reload()" class="bg-red-500 px-3 py-1 rounded text-sm">Abmelden</button>
+    <div id="planer-view" class="hidden max-w-7xl mx-auto">
+        <div class="bg-blue-700 p-4 rounded-t-xl text-white flex justify-between items-center">
+            <div><h1 class="text-2xl font-bold">Cito Care Zentrale</h1><p class="text-sm opacity-80">Einsatzplanung & Dokumentation</p></div>
+            <button onclick="location.reload()" class="bg-red-500 px-4 py-2 rounded text-sm font-bold">Abmelden</button>
         </div>
-        <div class="bg-white p-4 shadow rounded-b-xl grid grid-cols-3 gap-6">
-            <div class="col-span-1 border-r pr-4">
-                <h3 class="font-bold mb-2">Wunschfrei</h3>
-                <div id="wunschfrei-liste" class="text-sm"></div>
+
+        <div class="bg-white p-6 shadow-md rounded-b-xl grid grid-cols-12 gap-6">
+            <div class="col-span-3 border-r">
+                <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">Offene Wünsche</h3>
+                <div id="wunschfrei-liste" class="text-sm text-gray-600 space-y-2"></div>
+                <h3 class="font-bold text-gray-700 mt-8 mb-4 border-b pb-2">Klienten-Pool</h3>
+                <div id="klienten-liste" class="text-sm text-gray-600 space-y-2"></div>
             </div>
-            <div class="col-span-2">
-                <table class="w-full border-collapse mb-6">
-                    <tr class="bg-gray-100"><th class="p-2 border">Mitarbeiter</th><th class="p-2 border">Termine</th></tr>
+
+            <div class="col-span-9">
+                <div class="flex items-center justify-between mb-6 bg-gray-50 p-3 rounded">
+                    <button onclick="wocheWechseln(-7)" class="bg-white border px-3 py-1 rounded shadow-sm">◀</button>
+                    <span id="kw-anzeige" class="font-bold text-lg">Woche...</span>
+                    <button onclick="wocheWechseln(7)" class="bg-white border px-3 py-1 rounded shadow-sm">▶</button>
+                </div>
+
+                <table class="w-full border-collapse border mb-8">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="p-3 border">Mitarbeiter</th>
+                            <th class="p-3 border">Mo</th><th class="p-3 border">Di</th><th class="p-3 border">Mi</th>
+                            <th class="p-3 border">Do</th><th class="p-3 border">Fr</th><th class="p-3 border">Sa</th><th class="p-3 border">So</th>
+                        </tr>
+                    </thead>
                     <tbody id="matrix-body"></tbody>
                 </table>
-                <div class="bg-gray-50 p-4 rounded border">
-                    <h3 class="font-bold text-sm mb-2">Termin einplanen</h3>
-                    <select id="termin-ma" class="p-2 border w-full mb-2"></select>
-                    <input id="termin-kunde" placeholder="Kunde" class="p-2 border w-full mb-2">
-                    <input id="termin-datum" type="date" class="p-2 border w-full mb-2">
-                    <button onclick="terminEintragen()" class="bg-blue-600 text-white w-full p-2 rounded">Eintragen</button>
+
+                <div class="bg-gray-50 p-4 rounded border grid grid-cols-4 gap-2">
+                    <select id="termin-ma" class="p-2 border rounded text-sm"></select>
+                    <input id="termin-kunde" placeholder="Kunde" class="p-2 border rounded text-sm">
+                    <input id="termin-datum" type="date" class="p-2 border rounded text-sm">
+                    <button onclick="terminEintragen()" class="bg-blue-600 text-white rounded text-sm font-bold">Einsatz eintragen</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="mitarbeiter-view" class="hidden max-w-2xl mx-auto bg-white p-6 rounded shadow">
-        <h1 class="text-xl font-bold mb-4">Meine Termine</h1>
-        <div id="meine-termine-liste" class="mb-6"></div>
-        <button onclick="location.reload()" class="bg-red-500 text-white px-4 py-2 rounded">Abmelden</button>
-    </div>
-
     <script>
+        let fokusDatum = new Date();
+
         async function login() {
             const name = document.getElementById('nameInput').value;
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name })
-            });
-
+            const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
             if (res.ok) {
                 const data = await res.json();
-                document.getElementById('login-view').classList.add('hidden');
                 if (data.role === 'planer') {
+                    document.getElementById('login-view').classList.add('hidden');
                     document.getElementById('planer-view').classList.remove('hidden');
                     ladeDashboard();
-                } else {
-                    document.getElementById('mitarbeiter-view').classList.remove('hidden');
-                    loadMitarbeiterAnsicht(name);
                 }
-            } else { alert("Name nicht gefunden."); }
+            }
         }
 
         async function ladeDashboard() {
             const res = await fetch('/api/planer/dashboard');
             const d = await res.json();
+            document.getElementById('kw-anzeige').innerText = "Woche " + getKW(fokusDatum);
             
+            // Matrix bauen (einfache Zeilen für MA)
             document.getElementById('matrix-body').innerHTML = d.mitarbeiter.map(m => {
-                const termine = (d.termine || []).filter(t => t.mitarbeiter === m);
-                return `<tr><td class="p-2 border font-bold">${m}</td><td class="p-2 border">${termine.map(t => `<span class="bg-blue-100 px-2 py-1 rounded text-xs">${t.kunde}</span>`).join(' ')}</td></tr>`;
+                return `<tr>
+                    <td class="p-3 border font-bold">${m}</td>
+                    <td class="p-3 border" colspan="7">...</td>
+                </tr>`;
             }).join('');
-            
-            document.getElementById('termin-ma').innerHTML = d.mitarbeiter.map(m => `<option value="${m}">${m}</option>`).join('');
-            document.getElementById('wunschfrei-liste').innerHTML = (d.wunschfrei || []).map(w => `<div class="p-1 text-xs border-b">${w.name}</div>`).join('');
-        }
 
-        async function loadMitarbeiterAnsicht(name) {
-            const res = await fetch('/api/planer/dashboard');
-            const d = await res.json();
-            const meine = d.termine.filter(t => t.mitarbeiter === name);
-            document.getElementById('meine-termine-liste').innerHTML = meine.length > 0 
-                ? meine.map(t => `<div class="p-2 border-b">${t.kunde} am ${t.datum}</div>`).join('') 
-                : "Keine Termine.";
+            document.getElementById('termin-ma').innerHTML = d.mitarbeiter.map(m => `<option value="${m}">${m}</option>`).join('');
         }
 
         async function terminEintragen() {
             await fetch('/api/planer/termin-eintragen', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     mitarbeiter: document.getElementById('termin-ma').value,
                     kunde: document.getElementById('termin-kunde').value,
@@ -100,6 +97,18 @@
                 })
             });
             ladeDashboard();
+        }
+
+        function wocheWechseln(tage) {
+            fokusDatum.setDate(fokusDatum.getDate() + tage);
+            ladeDashboard();
+        }
+
+        function getKW(d) {
+            let t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+            let jahr = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+            return Math.ceil((((t - jahr) / 86400000) + 1) / 7);
         }
     </script>
 </body>
