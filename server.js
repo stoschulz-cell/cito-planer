@@ -63,12 +63,11 @@ app.get('/api/planer/wuensche', async (req, res) => {
 
 app.post('/api/planer/wunsch/bestaetigen', async (req, res) => {
     try {
-        const { id } = req.body;
+        const id = Number(req.body.id);
         const data = await db.collection('daten').findOne({ id: "main" });
-        const wunsch = data.wunschfreiListe.find(w => w.id === Number(id));
+        const wunsch = data.wunschfreiListe.find(w => w.id === id);
         
         if (wunsch) {
-            // Wunsch in Termine verschieben
             const neuerTermin = { 
                 id: Date.now(), 
                 mitarbeiter: wunsch.mitarbeiter, 
@@ -80,11 +79,13 @@ app.post('/api/planer/wunsch/bestaetigen', async (req, res) => {
             };
             await db.collection('daten').updateOne({ id: "main" }, { 
                 $push: { termine: neuerTermin },
-                $pull: { wunschfreiListe: { id: Number(id) } }
+                $pull: { wunschfreiListe: { id: id } } // Hier wird die ID als Number gesucht
             });
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ error: "Wunsch nicht gefunden" });
         }
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Fehler bei Bestätigung" }); }
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // --- TERMIN LOGIK ---
