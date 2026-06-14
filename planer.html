@@ -147,6 +147,8 @@
         async function mitarbeiterAnlegen() { const name = document.getElementById('new-ma').value; if(!name) return; await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); document.getElementById('new-ma').value = ''; ladeDashboard(); }
         async function mitarbeiterLoeschen(name) { if(confirm(`Wirklich ${name} löschen?`)) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); } }
         async function terminAnlegen() { const termin = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(termin) }); ladeDashboard(); }
+        
+        // KORREKTUR HIER: Pfad auf /api/planer/termin/:id angepasst
         async function terminLoeschen(id) { if(confirm("Termin wirklich löschen?")) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); } }
         
         window.onload = ladeDashboard;

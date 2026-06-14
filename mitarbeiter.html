@@ -37,32 +37,39 @@
         }
 
         async function ladeMitarbeiterAnsicht() {
+            const ansichtDiv = document.getElementById('meine-ansicht');
             try {
                 const res = await fetch('/api/planer/dashboard');
-                const d = await res.json();
-                const kwId = getKwId(aktuellerMontag);
+                if (!res.ok) throw new Error("Server antwortet nicht (Status " + res.status + ")");
                 
+                const d = await res.json();
+                console.log("Server-Daten empfangen:", d); 
+                
+                const kwId = getKwId(aktuellerMontag);
                 document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]} (${kwId.split('-')[0]})`;
 
-                if (!d.freigaben || !d.freigaben[kwId]) {
-                    document.getElementById('meine-ansicht').innerHTML = `<p class="text-red-500 p-4 border border-red-200 bg-red-50 rounded">Der Dienstplan für diese Woche wurde noch nicht freigegeben.</p>`;
+                // Freigabe-Check
+                if (!d.freigaben || d.freigaben[kwId] !== true) {
+                    ansichtDiv.innerHTML = `<p class="text-red-500 p-4 border border-red-200 bg-red-50 rounded">Der Dienstplan für diese Woche wurde noch nicht freigegeben.</p>`;
                     return;
                 }
 
+                // Filter-Logik
                 let montag = new Date(aktuellerMontag);
                 let sonntag = new Date(montag);
                 sonntag.setDate(sonntag.getDate() + 6);
 
                 const meineTermine = (d.termine || []).filter(t => {
+                    if (!t.datum) return false;
                     let [y, m, d_val] = t.datum.split('-').map(Number);
                     let terminDate = new Date(y, m - 1, d_val);
                     return t.mitarbeiter.trim() === meinName.trim() && terminDate >= montag && terminDate <= sonntag;
                 });
 
                 if (meineTermine.length === 0) {
-                    document.getElementById('meine-ansicht').innerHTML = "<p class='text-gray-500 italic'>Keine Termine für diese Woche.</p>";
+                    ansichtDiv.innerHTML = "<p class='text-gray-500 italic'>Keine Termine für diese Woche gefunden.</p>";
                 } else {
-                    document.getElementById('meine-ansicht').innerHTML = meineTermine.map(t => `
+                    ansichtDiv.innerHTML = meineTermine.map(t => `
                         <div class="p-4 border rounded ${t.istGeaendert ? 'bg-orange-50 border-orange-400' : 'bg-blue-50 border-blue-200'}">
                             <div class="flex justify-between items-center">
                                 <p class="font-bold text-gray-800">${t.kunde} <span class="text-sm font-normal text-gray-500">(${t.datum})</span></p>
@@ -78,7 +85,8 @@
                     `).join('');
                 }
             } catch (err) {
-                document.getElementById('meine-ansicht').innerHTML = "Fehler beim Laden der Daten.";
+                console.error("Fehler beim Laden:", err);
+                ansichtDiv.innerHTML = "Fehler beim Laden: " + err.message;
             }
         }
 
@@ -90,16 +98,20 @@
         async function terminAendern(id) {
             const von = document.getElementById(`von-${id}`).value;
             const bis = document.getElementById(`bis-${id}`).value;
-            const res = await fetch('/api/mitarbeiter/termin/update', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ id, von, bis, geaendertVon: meinName })
-            });
-            if(res.ok) {
-                alert("Änderung erfolgreich übermittelt!");
-                ladeMitarbeiterAnsicht();
-            } else {
-                alert("Fehler beim Speichern!");
+            try {
+                const res = await fetch('/api/mitarbeiter/termin/update', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ id, von, bis, geaendertVon: meinName })
+                });
+                if(res.ok) {
+                    alert("Änderung erfolgreich übermittelt!");
+                    ladeMitarbeiterAnsicht();
+                } else {
+                    alert("Fehler beim Speichern auf dem Server.");
+                }
+            } catch (e) {
+                alert("Verbindungsfehler!");
             }
         }
 
