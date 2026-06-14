@@ -2,6 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <title>Cito Care Planer</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 p-5">
@@ -26,9 +27,11 @@
     </div>
 
     <script>
+        const API_URL = "/api";
+
         async function login() {
             const name = document.getElementById('nameInput').value;
-            const res = await fetch('/api/login', {
+            const res = await fetch(`${API_URL}/login`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ name })
@@ -40,15 +43,35 @@
                 
                 if (data.role === 'planer') {
                     document.getElementById('planer-view').classList.remove('hidden');
-                    window.ladeDashboard(); // Deine Dashboard-Funktion
+                    window.ladeDashboard(); 
                 } else {
                     document.getElementById('mitarbeiter-view').classList.remove('hidden');
-                    // Hier später Termine für Mitarbeiter filtern
                 }
             } else {
                 alert("Name nicht im System gefunden.");
             }
         }
+
+        window.ladeDashboard = async function() {
+            try {
+                const antwort = await fetch(`${API_URL}/planer/dashboard`);
+                const daten = await antwort.json();
+                
+                // Sidebar Mitarbeiter
+                const sidebar = document.getElementById('mitarbeiter-liste-sidebar');
+                if(sidebar && daten.mitarbeiter) {
+                    sidebar.innerHTML = daten.mitarbeiter.map(m => `
+                        <div class="p-2 bg-white rounded border">${m}</div>`).join('');
+                }
+
+                // Tabelle Matrix
+                const matrixBody = document.getElementById('matrix-body');
+                if(matrixBody && daten.mitarbeiter) {
+                    matrixBody.innerHTML = daten.mitarbeiter.map(m => `
+                        <tr><td class="p-3 border font-bold">${m}</td><td class="p-3 border text-gray-500">Keine Termine</td></tr>`).join('');
+                }
+            } catch (e) { console.error("Fehler beim Laden:", e); }
+        };
     </script>
 </body>
 </html>
