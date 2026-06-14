@@ -23,7 +23,8 @@
     </div>
 
     <script>
-        const meinName = localStorage.getItem('mitarbeiterName') || "";
+        // Wir holen den Namen einmal und bereinigen ihn sofort
+        const meinName = (localStorage.getItem('mitarbeiterName') || "").trim().toLowerCase();
         
         function formatDate(date) {
             const y = date.getFullYear();
@@ -71,10 +72,13 @@
                 tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('') + '</tr>';
 
             let bodyHtml = (d.mitarbeiterListe || []).map(m => {
-                // Robuster Vergleich: ignoriert Leerzeichen und Großschreibung
-                const isOwner = (m.name.trim().toLowerCase() === meinName.trim().toLowerCase());
-                let row = `<tr><td class="p-3 border font-bold">${m.name}</td>`;
+                const dbName = m.name.trim().toLowerCase();
+                const isOwner = (dbName === meinName);
                 
+                // Debug-Info in der Konsole falls der Button nicht erscheint
+                if(isOwner) console.log("Button wird für " + m.name + " angezeigt.");
+
+                let row = `<tr><td class="p-3 border font-bold">${m.name}</td>`;
                 tage.forEach(t => {
                     const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
                     if (!termin) {
