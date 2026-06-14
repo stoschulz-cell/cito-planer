@@ -34,9 +34,8 @@
     </div>
 
     <script>
-        // Stabile Datums-Logik
+        // Stabile Datums-Logik: Immer den Montag der aktuellen Woche finden
         let aktuellerMontag = new Date();
-        // Setze auf den letzten Montag (UTC um Probleme mit Sommerzeit zu vermeiden)
         let day = aktuellerMontag.getUTCDay();
         let diff = aktuellerMontag.getUTCDate() - day + (day === 0 ? -6 : 1);
         aktuellerMontag.setUTCDate(diff);
@@ -49,16 +48,22 @@
             ladeUebersicht(); 
         }
 
+        // ISO 8601 KW-Berechnung
+        function getISOWeek(date) {
+            let d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+            // Donnerstag der aktuellen Woche finden
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+            let yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        }
+
         async function ladeUebersicht() {
             try {
                 const res = await fetch('/api/planer/dashboard');
                 const d = await res.json();
                 
-                // KW Berechnung
-                let d2 = new Date(aktuellerMontag);
-                let yearStart = new Date(Date.UTC(d2.getUTCFullYear(), 0, 1));
-                let kw = Math.ceil((((d2 - yearStart) / 86400000) + 1) / 7);
-                document.getElementById('kw-titel').innerText = `KW ${kw}`;
+                // KW im Header aktualisieren
+                document.getElementById('kw-titel').innerText = `KW ${getISOWeek(aktuellerMontag)}`;
 
                 let tage = [];
                 for(let i=0; i<7; i++) {
@@ -68,7 +73,7 @@
                 }
 
                 if (!d.mitarbeiterListe) {
-                    document.getElementById('plan-container').innerHTML = "<p class='p-5 text-center text-red-500'>Keine Daten vom Server erhalten. Bitte Planer informieren.</p>";
+                    document.getElementById('plan-container').innerHTML = "<p class='p-5 text-center text-red-500'>Daten konnten nicht geladen werden.</p>";
                     return;
                 }
 
@@ -96,7 +101,6 @@
                 document.getElementById('plan-container').innerHTML = html + '</tbody></table>';
             } catch (e) { 
                 console.error("Ladefehler:", e); 
-                document.getElementById('plan-container').innerHTML = "<p class='p-5 text-center'>Verbindung zum Server fehlgeschlagen.</p>";
             }
         }
 
