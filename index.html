@@ -11,17 +11,23 @@
         <button onclick="login()" class="w-full bg-blue-600 text-white p-2 rounded">Login</button>
     </div>
     <script>
-        async function login() {
-            const res = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name: document.getElementById('name').value, passwort: document.getElementById('pass').value })
-            });
-            const data = await res.json();
-            if (data.success) {
-                window.location.href = data.role === 'planer' ? 'planer.html' : 'mitarbeiter.html';
-            } else { alert("Login fehlgeschlagen"); }
-        }
+    async function login() {
+    const name = document.getElementById('name').value;
+    const passwort = document.getElementById('pass').value;
+
+    const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, // WICHTIG!
+        body: JSON.stringify({ name, passwort })        // WICHTIG!
+    });
+    
+    const data = await res.json();
+    if (res.ok) { // Prüft, ob Status 200 zurückkam
+        window.location.href = data.role === 'planer' ? 'planer.html' : 'mitarbeiter.html';
+    } else {
+        alert("Login fehlgeschlagen: " + (data.error || "Unbekannter Fehler"));
+    }
+}
     </script>
 </body>
 </html>
