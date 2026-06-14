@@ -44,15 +44,16 @@ app.get('/api/planer/dashboard', async (req, res) => {
 });
 
 // --- TERMIN LOGIK ---
-// ROUTE FÜR MITARBEITER: Markiert als Änderung (Orange in Planer-Ansicht)
+// ANGEPASSTE ROUTE: Unterstützt jetzt Datum, Start- und Endzeit
 app.post('/api/mitarbeiter/verschieben-als-aenderung', async (req, res) => {
     try {
-        const { id, neueVon, neueBis } = req.body;
+        const { id, neuesDatum, neueVon, neueBis } = req.body;
         await db.collection('daten').updateOne(
             { id: "main", "termine.id": Number(id) },
             { 
                 $set: { 
-                    "termine.$.aktuell": { von: neueVon, bis: neueBis },
+                    "termine.$.aktuell": { datum: neuesDatum, von: neueVon, bis: neueBis },
+                    "termine.$.datum": neuesDatum, // Aktualisiert auch das Haupt-Datumsfeld
                     "termine.$.hatAenderung": true 
                 } 
             }
@@ -67,9 +68,16 @@ app.post('/api/planer/termin/bestaetigen', async (req, res) => {
         const { id } = req.body;
         const data = await db.collection('daten').findOne({ id: "main" });
         const term = data.termine.find(t => t.id === Number(id));
+        
         await db.collection('daten').updateOne(
             { id: "main", "termine.id": Number(id) },
-            { $set: { "termine.$.original": term.aktuell, "termine.$.hatAenderung": false } }
+            { 
+                $set: { 
+                    "termine.$.original": term.aktuell, 
+                    "termine.$.datum": term.aktuell.datum,
+                    "termine.$.hatAenderung": false 
+                } 
+            }
         );
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fehler bei Bestätigung" }); }
@@ -80,8 +88,8 @@ app.post('/api/planer/termin', async (req, res) => {
         const { mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit } = req.body;
         const neuerTermin = { 
             id: Date.now(), mitarbeiter, kunde, datum, 
-            original: { von: von_uhrzeit, bis: bis_uhrzeit },
-            aktuell: { von: von_uhrzeit, bis: bis_uhrzeit },
+            original: { datum, von: von_uhrzeit, bis: bis_uhrzeit },
+            aktuell: { datum, von: von_uhrzeit, bis: bis_uhrzeit },
             hatAenderung: false 
         };
         await db.collection('daten').updateOne({ id: "main" }, { $push: { termine: neuerTermin } });
