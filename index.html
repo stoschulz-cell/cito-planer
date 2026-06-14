@@ -2,44 +2,41 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cito Care - Planer Zentrale</title>
+    <title>Cito Care Zentrale</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen p-5">
+<body class="bg-gray-100 p-5">
 
-    <div id="login-view" class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-lg mt-20">
-        <h2 class="text-xl font-bold mb-4 text-gray-800">Cito Care Anmeldung</h2>
-        <input id="nameInput" placeholder="Dein Name" class="border p-2 w-full mb-4 rounded-xl">
-        <button onclick="login()" class="bg-blue-600 text-white w-full p-2 rounded-xl font-bold">Login</button>
+    <div id="login-view" class="max-w-md mx-auto bg-white p-6 rounded shadow">
+        <h2 class="text-lg font-bold mb-4">Anmeldung</h2>
+        <input id="nameInput" placeholder="Dein Name" class="border p-2 w-full mb-4">
+        <button onclick="login()" class="bg-blue-600 text-white w-full p-2 rounded">Login</button>
     </div>
 
     <div id="planer-view" class="hidden">
-        <div class="bg-blue-600 p-6 rounded-2xl text-white shadow-md mb-6 flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-black">Planer Dashboard</h1>
-                <p id="kw-anzeige" class="text-sm opacity-80"></p>
-            </div>
-            <button onclick="location.reload()" class="bg-red-500 px-4 py-2 rounded-xl text-sm font-bold">Abmelden</button>
+        <div class="bg-blue-700 p-4 rounded-t-xl text-white">
+            <h1 class="text-xl font-bold">Cito Care Zentrale</h1>
+            <p class="text-xs opacity-80">Einsatzplanung & Dokumentation</p>
         </div>
+        
+        <div class="bg-white p-4 shadow rounded-b-xl">
+            <div class="flex items-center gap-4 mb-4">
+                <button onclick="wocheWechseln(-7)" class="bg-gray-200 px-3 py-1 rounded">◀</button>
+                <span id="kw-anzeige" class="font-bold">Woche...</span>
+                <button onclick="wocheWechseln(7)" class="bg-gray-200 px-3 py-1 rounded">▶</button>
+                <button onclick="location.reload()" class="ml-auto bg-red-500 text-white px-3 py-1 rounded text-sm">Abmelden</button>
+            </div>
 
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full border-collapse">
                 <thead>
-                    <tr class="bg-gray-50">
-                        <th class="p-3 border-b">Mitarbeiter</th>
-                        <th class="p-3 border-b">Termine</th>
+                    <tr class="bg-gray-100">
+                        <th class="p-3 border">Mitarbeiter</th>
+                        <th class="p-3 border">Termine</th>
                     </tr>
                 </thead>
                 <tbody id="matrix-body"></tbody>
             </table>
         </div>
-    </div>
-
-    <div id="mitarbeiter-view" class="hidden">
-        <h1 class="text-2xl font-bold mb-4">Meine Termine</h1>
-        <div id="meine-termine" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100"></div>
-        <button onclick="location.reload()" class="bg-red-500 text-white px-4 py-2 mt-4 rounded-xl text-sm">Abmelden</button>
     </div>
 
     <script>
@@ -60,43 +57,29 @@
                     document.getElementById('planer-view').classList.remove('hidden');
                     ladeDashboard();
                 } else {
-                    document.getElementById('mitarbeiter-view').classList.remove('hidden');
-                    loadMitarbeiterAnsicht(name);
+                    alert("Nur für Planer verfügbar.");
                 }
-            } else {
-                alert("Name nicht gefunden.");
             }
         }
 
         async function ladeDashboard() {
             const res = await fetch('/api/planer/dashboard');
             const daten = await res.json();
-            
-            // KW berechnen
             document.getElementById('kw-anzeige').innerText = "Woche " + getKW(fokusDatum);
             
-            // Tabelle füllen
             const matrixBody = document.getElementById('matrix-body');
             matrixBody.innerHTML = daten.mitarbeiter.map(m => {
                 const termine = (daten.termine || []).filter(t => t.mitarbeiter === m);
-                return `
-                    <tr class="border-b">
-                        <td class="p-4 font-bold text-gray-700">${m}</td>
-                        <td class="p-4 flex gap-2 flex-wrap">
-                            ${termine.map(t => `<span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">${t.kunde}</span>`).join('')}
-                        </td>
-                    </tr>`;
+                return `<tr>
+                    <td class="p-3 border font-bold">${m}</td>
+                    <td class="p-3 border">${termine.map(t => `<span class="bg-blue-100 px-2 py-1 rounded text-xs">${t.kunde}</span>`).join(' ')}</td>
+                </tr>`;
             }).join('');
         }
 
-        async function loadMitarbeiterAnsicht(name) {
-            const res = await fetch('/api/planer/dashboard');
-            const daten = await res.json();
-            const container = document.getElementById('meine-termine');
-            const meine = daten.termine.filter(t => t.mitarbeiter === name);
-            container.innerHTML = meine.length > 0 
-                ? meine.map(t => `<div class="p-2 border-b">${t.kunde} am ${t.datum}</div>`).join('') 
-                : "Keine Termine für diese Woche.";
+        function wocheWechseln(tage) {
+            fokusDatum.setDate(fokusDatum.getDate() + tage);
+            ladeDashboard();
         }
 
         function getKW(d) {
