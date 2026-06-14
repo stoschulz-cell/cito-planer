@@ -71,7 +71,7 @@ app.post('/api/planer/wunsch/bestaetigen', async (req, res) => {
             const neuerTermin = { 
                 id: Date.now(), 
                 mitarbeiter: wunsch.mitarbeiter, 
-                kunde: wunsch.grund, // Hier wird der Grund als Termin-Grund gesetzt
+                kunde: wunsch.grund,
                 datum: wunsch.datum, 
                 original: { von: wunsch.zeit, bis: "00:00" },
                 aktuell: { von: wunsch.zeit, bis: "00:00" },
