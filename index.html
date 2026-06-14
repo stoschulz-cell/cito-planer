@@ -2,69 +2,64 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cito Care - Planer Zentrale</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <title>Cito Care System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans p-4 space-y-6">
+<body class="bg-gray-100 p-5">
 
-    <div class="bg-blue-600 p-4 rounded-2xl text-white shadow-md flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-black tracking-wide">Cito Care Zentrale</h1>
-            <p class="text-xs opacity-80">Einsatzplanung & Dokumentation</p>
-        </div>
-        <button onclick="window.terminFreigeben()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl shadow text-sm cursor-pointer">
-            Woche freigeben 🚀
-        </button>
+    <div id="login-view" class="max-w-md mx-auto bg-white p-6 rounded shadow">
+        <h2 class="text-xl font-bold mb-4">Anmeldung</h2>
+        <input id="nameInput" placeholder="Dein Name" class="border p-2 w-full mb-4 rounded">
+        <button onclick="login()" class="bg-blue-600 text-white w-full p-2 rounded font-bold cursor-pointer">Login</button>
     </div>
 
-    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
-        <h2 class="text-sm font-black text-gray-700 flex items-center gap-1">📨 Offene Wunschfrei-Anträge</h2>
-        <div id="antraege-liste" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+    <div id="planer-view" class="hidden">
+        <h1 class="text-2xl font-bold mb-4">Planer Dashboard</h1>
+        <button onclick="logout()" class="bg-red-500 text-white p-2 rounded mt-4">Abmelden</button>
     </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-4 gap-4">
-        <div class="space-y-4">
-            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
-                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Team</h3>
-                <div class="flex gap-1">
-                    <input type="text" id="ma-name" placeholder="Name..." class="p-2 border rounded-xl text-xs w-full">
-                    <button onclick="window.mitarbeiterAnlegen()" class="bg-blue-600 text-white px-3 py-2 rounded-xl text-xs font-bold cursor-pointer">+</button>
-                </div>
-                <div id="mitarbeiter-liste-sidebar" class="space-y-1"></div>
-            </div>
-
-            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
-                <h3 class="text-xs font-bold text-purple-600 uppercase tracking-wider">🔮 Klienten-Pool</h3>
-                <div id="klienten-pool-liste" class="space-y-2"></div>
-            </div>
-        </div>
-
-        <div class="xl:col-span-3 bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-            <div class="flex items-center gap-4">
-                <button onclick="window.wocheWechseln(-7)" class="p-2 bg-gray-50 rounded-xl font-bold cursor-pointer">◀</button>
-                <span id="kw-anzeige" class="text-sm font-black text-gray-700">Lade...</span>
-                <button onclick="window.wocheWechseln(7)" class="p-2 bg-gray-50 rounded-xl font-bold cursor-pointer">▶</button>
-            </div>
-            
-            <table class="w-full text-left text-xs border-collapse">
-                <thead id="matrix-head"></thead>
-                <tbody id="matrix-body"></tbody>
-            </table>
-        </div>
+    <div id="mitarbeiter-view" class="hidden">
+        <h1 class="text-2xl font-bold mb-4">Meine Termine</h1>
+        <div id="meine-termine" class="bg-white p-4 rounded shadow"></div>
+        <button onclick="logout()" class="bg-red-500 text-white p-2 rounded mt-4">Abmelden</button>
     </div>
 
     <script>
-        const API_URL = "/api";
-        let fokusDatum = new Date();
-        window.ladeDashboard = async function() {
-            const res = await fetch(`${API_URL}/planer/dashboard`);
-            const daten = await res.json();
-            // Hier würde die Logik stehen, die wir oben in deiner Datei hatten
-            // (Mitarbeiter-Liste füllen, Matrix rendern, Pool rendern...)
-            console.log("Daten erhalten:", daten);
-        };
-        window.ladeDashboard();
+        // LOGIN-FUNKTION
+        async function login() {
+            const name = document.getElementById('nameInput').value;
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('login-view').classList.add('hidden');
+                
+                if (data.role === 'planer') {
+                    document.getElementById('planer-view').classList.remove('hidden');
+                    // Hier später ladeDashboard() für Planer
+                } else {
+                    document.getElementById('mitarbeiter-view').classList.remove('hidden');
+                    loadMitarbeiterTermine(name);
+                }
+            } else {
+                alert("Name nicht in der Datenbank gefunden.");
+            }
+        }
+
+        // MITARBEITER-ANSICHT LADEN
+        async function loadMitarbeiterTermine(name) {
+            const res = await fetch('/api/planer/dashboard');
+            const data = await res.json();
+            const container = document.getElementById('meine-termine');
+            const meine = data.termine.filter(t => t.mitarbeiter === name);
+            container.innerHTML = meine.length > 0 ? meine.map(t => `<div class="p-2 border-b">${t.kunde} am ${t.datum}</div>`).join('') : "Keine Termine.";
+        }
+
+        function logout() { location.reload(); }
     </script>
 </body>
 </html>
