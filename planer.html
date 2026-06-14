@@ -65,15 +65,18 @@
             
             document.getElementById('kw-titel').innerText = `KW ${getKW(aktuellerMontag)}`;
 
-            // Mitarbeiter Sidebar
+            // Mitarbeiter Sidebar mit Sortier-Buttons
             document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
                 <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
-                    <span>${m.name}</span>
-                    <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold hover:bg-red-100 px-2 py-1 rounded">✕</button>
+                    <span class="truncate w-20">${m.name}</span>
+                    <div class="flex gap-1">
+                        <button onclick="sortiereMitarbeiter('${m.name}', 'up')" class="bg-gray-200 hover:bg-gray-300 px-1 rounded">▲</button>
+                        <button onclick="sortiereMitarbeiter('${m.name}', 'down')" class="bg-gray-200 hover:bg-gray-300 px-1 rounded">▼</button>
+                        <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold px-2 hover:text-red-700">✕</button>
+                    </div>
                 </div>
             `).join('');
 
-            // Wochentage berechnen
             let tage = [];
             for(let i=0; i<7; i++) {
                 let tag = new Date(aktuellerMontag);
@@ -81,21 +84,16 @@
                 tage.push(tag.toISOString().split('T')[0]);
             }
 
-            // Header rendern
-            const wochentage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
             document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
-                tage.map((t, i) => `<th class="p-3 border">${wochentage[i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('') +
+                tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('') +
                 '<th class="p-3 border">Gesamt</th>';
 
-            // Matrix rendern
             document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => {
                 const termineMA = (d.termine || []).filter(x => x.mitarbeiter === m.name && tage.includes(x.datum));
-                
-                // Stundenberechnung
                 let wochenStunden = termineMA.reduce((sum, t) => {
-                    let [startH, startM] = t.von_uhrzeit.split(':').map(Number);
-                    let [endeH, endeM] = t.bis_uhrzeit.split(':').map(Number);
-                    let diff = (endeH * 60 + endeM) - (startH * 60 + startM);
+                    let [sH, sM] = t.von_uhrzeit.split(':').map(Number);
+                    let [eH, eM] = t.bis_uhrzeit.split(':').map(Number);
+                    let diff = (eH * 60 + eM) - (sH * 60 + sM);
                     return sum + (diff > 0 ? diff / 60 : 0);
                 }, 0);
 
@@ -107,14 +105,13 @@
                             return `<td class="p-2 border text-[11px] h-20 align-top">
                                 ${termineDesTages.map(termin => `
                                     <div class="bg-blue-100 p-1 rounded border border-blue-200 mb-1">
-                                        <b>${termin.kunde}</b><br>
-                                        ${termin.von_uhrzeit} - ${termin.bis_uhrzeit} Uhr
-                                        <button onclick="terminLoeschen(${termin.id})" class="text-red-600 font-bold block mt-1 hover:text-red-800">✕ Löschen</button>
+                                        <b>${termin.kunde}</b><br>${termin.von_uhrzeit}-${termin.bis_uhrzeit}
+                                        <button onclick="terminLoeschen(${termin.id})" class="text-red-600 font-bold block mt-1 hover:text-red-800">✕</button>
                                     </div>
                                 `).join('')}
                             </td>`;
                         }).join('')}
-                        <td class="p-3 border font-bold text-center bg-gray-100">${wochenStunden.toFixed(1)} Std</td>
+                        <td class="p-3 border font-bold text-center bg-gray-100">${wochenStunden.toFixed(1)}</td>
                     </tr>
                 `;
             }).join('');
@@ -122,51 +119,26 @@
             document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
         }
 
+        async function sortiereMitarbeiter(name, richtung) {
+            await fetch('/api/planer/mitarbeiter/sortieren', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, richtung })
+            });
+            ladeDashboard();
+        }
+
+        // ... (restliche Funktionen: getKW, wocheBlaettern, mitarbeiterAnlegen, etc.)
         function getKW(date) {
             let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
             d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
             return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1)/7);
         }
-
-        function wocheBlaettern(n) {
-            aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7));
-            ladeDashboard();
-        }
-
-        async function mitarbeiterAnlegen() {
-            const name = document.getElementById('new-ma').value;
-            if(!name) return;
-            await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
-            document.getElementById('new-ma').value = '';
-            ladeDashboard();
-        }
-
-        async function mitarbeiterLoeschen(name) {
-            if(confirm(`Wirklich ${name} löschen?`)) {
-                await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' });
-                ladeDashboard();
-            }
-        }
-
-        async function terminAnlegen() {
-            const termin = {
-                mitarbeiter: document.getElementById('termin-ma').value,
-                kunde: document.getElementById('termin-kunde').value,
-                datum: document.getElementById('termin-datum').value,
-                von_uhrzeit: document.getElementById('termin-von').value,
-                bis_uhrzeit: document.getElementById('termin-bis').value
-            };
-            await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(termin) });
-            ladeDashboard();
-        }
-
-        async function terminLoeschen(id) {
-            if(confirm("Termin wirklich löschen?")) {
-                await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' });
-                ladeDashboard();
-            }
-        }
-
+        function wocheBlaettern(n) { aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7)); ladeDashboard(); }
+        async function mitarbeiterAnlegen() { const name = document.getElementById('new-ma').value; if(!name) return; await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); document.getElementById('new-ma').value = ''; ladeDashboard(); }
+        async function mitarbeiterLoeschen(name) { if(confirm(`Wirklich ${name} löschen?`)) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); } }
+        async function terminAnlegen() { const termin = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(termin) }); ladeDashboard(); }
+        async function terminLoeschen(id) { if(confirm("Termin wirklich löschen?")) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); } }
         window.onload = ladeDashboard;
     </script>
 </body>

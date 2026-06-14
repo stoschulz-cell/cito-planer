@@ -83,6 +83,27 @@ app.delete('/api/planer/mitarbeiter/:name', async (req, res) => {
     }
 });
 
+// --- MITARBEITER SORTIEREN ---
+app.post('/api/planer/mitarbeiter/sortieren', async (req, res) => {
+    try {
+        const { name, richtung } = req.body; // richtung: 'up' oder 'down'
+        const data = await db.collection('daten').findOne({ id: "main" });
+        let liste = data.mitarbeiterListe;
+        const index = liste.findIndex(m => m.name === name);
+
+        if (richtung === 'up' && index > 0) {
+            [liste[index], liste[index - 1]] = [liste[index - 1], liste[index]];
+        } else if (richtung === 'down' && index < liste.length - 1) {
+            [liste[index], liste[index + 1]] = [liste[index + 1], liste[index]];
+        }
+
+        await db.collection('daten').updateOne({ id: "main" }, { $set: { mitarbeiterListe: liste } });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: "Fehler beim Sortieren" });
+    }
+});
+
 // --- TERMIN ANLEGEN ---
 app.post('/api/planer/termin', async (req, res) => {
     try {
