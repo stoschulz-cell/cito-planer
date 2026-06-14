@@ -109,12 +109,15 @@
                         ${tage.map(t => {
                             const termineDesTages = termineMA.filter(x => x.datum === t);
                             return `<td class="p-2 border text-[11px] h-20 align-top ${istFreigegeben ? '' : 'bg-yellow-50'}">
-                                ${termineDesTages.map(termin => `
-                                    <div class="p-1 rounded border mb-1 ${istFreigegeben ? 'bg-blue-100 border-blue-200' : 'bg-white border-dashed border-yellow-400'}">
-                                        <b>${termin.kunde}</b><br>${termin.von_uhrzeit}-${termin.bis_uhrzeit}
+                                ${termineDesTages.map(termin => {
+                                    const bgColor = termin.istGeaendert ? 'bg-orange-200 border-orange-500' : (istFreigegeben ? 'bg-blue-100 border-blue-200' : 'bg-white border-dashed border-yellow-400');
+                                    return `
+                                    <div class="p-1 rounded border mb-1 ${bgColor}">
+                                        <b>${termin.kunde}</b> ${termin.istGeaendert ? `<br><small class="text-[9px] text-orange-800">Geändert von ${termin.geaendertVon}</small>` : ''}
+                                        <br>${termin.von_uhrzeit}-${termin.bis_uhrzeit}
                                         <button onclick="terminLoeschen(${termin.id})" class="text-red-600 font-bold block mt-1">✕</button>
-                                    </div>
-                                `).join('')}
+                                    </div>`;
+                                }).join('')}
                             </td>`;
                         }).join('')}
                         <td class="p-3 border font-bold text-center bg-gray-100">${(termineMA.reduce((s,t) => {
@@ -139,7 +142,6 @@
             ladeDashboard();
         }
 
-        // Hilfsfunktionen (sortiereMitarbeiter, wocheBlaettern, etc. bleiben gleich)
         async function sortiereMitarbeiter(name, richtung) { await fetch('/api/planer/mitarbeiter/sortieren', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, richtung }) }); ladeDashboard(); }
         function wocheBlaettern(n) { aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7)); ladeDashboard(); }
         async function mitarbeiterAnlegen() { const name = document.getElementById('new-ma').value; if(!name) return; await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); document.getElementById('new-ma').value = ''; ladeDashboard(); }

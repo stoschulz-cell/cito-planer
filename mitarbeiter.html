@@ -6,13 +6,61 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 p-5">
-    <div class="max-w-2xl mx-auto bg-white p-6 rounded shadow">
-        <h1 class="text-xl font-bold mb-4">Meine Übersicht</h1>
-        <div id="meine-ansicht">Willkommen! Deine Termine werden geladen...</div>
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
+        <h1 class="text-xl font-bold mb-4">Meine Termine - <span id="ma-name"></span></h1>
+        <div id="meine-ansicht" class="space-y-4">Lade Termine...</div>
         <button onclick="window.location.href='index.html'" class="mt-6 bg-red-500 text-white px-4 py-2 rounded">Abmelden</button>
     </div>
+
     <script>
-        // Hier kommt die Logik rein, um nur Termine für den aktuell eingeloggten User zu zeigen
+        const meinName = localStorage.getItem('mitarbeiterName');
+        document.getElementById('ma-name').innerText = meinName;
+
+        function getKwId(date) {
+            let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+            let kw = Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1)/7);
+            return `${d.getUTCFullYear()}-${kw}`;
+        }
+
+        async function ladeMitarbeiterAnsicht() {
+            const res = await fetch('/api/planer/dashboard');
+            const d = await res.json();
+            const kwId = getKwId(new Date());
+
+            if (!d.freigaben?.[kwId]) {
+                document.getElementById('meine-ansicht').innerHTML = `<p class="text-red-500 font-bold">Der Dienstplan für diese Woche wurde noch nicht freigegeben.</p>`;
+                return;
+            }
+
+            const meineTermine = d.termine.filter(t => t.mitarbeiter === meinName);
+            
+            document.getElementById('meine-ansicht').innerHTML = meineTermine.map(t => `
+                <div class="p-4 border rounded ${t.istGeaendert ? 'bg-orange-50 border-orange-400' : 'bg-blue-50'}">
+                    <p class="font-bold">${t.kunde} (${t.datum})</p>
+                    <div class="flex gap-2 mt-2">
+                        <input type="time" id="von-${t.id}" value="${t.von_uhrzeit}" class="border p-1">
+                        <input type="time" id="bis-${t.id}" value="${t.bis_uhrzeit}" class="border p-1">
+                        <button onclick="terminAendern(${t.id})" class="bg-green-600 text-white px-3 py-1 rounded text-sm">Speichern</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function terminAendern(id) {
+            const von = document.getElementById(`von-${id}`).value;
+            const bis = document.getElementById(`bis-${id}`).value;
+            
+            await fetch('/api/mitarbeiter/termin/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id, von, bis, geaendertVon: meinName })
+            });
+            alert("Termin angepasst!");
+            ladeMitarbeiterAnsicht();
+        }
+
+        window.onload = ladeMitarbeiterAnsicht;
     </script>
 </body>
 </html>

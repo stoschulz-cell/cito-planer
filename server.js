@@ -56,10 +56,10 @@ app.get('/api/planer/dashboard', async (req, res) => {
     }
 });
 
-// --- NEUE ROUTE FÜR WÖCHENTLICHE FREIGABE ---
+// --- FREIGABE ROUTE ---
 app.post('/api/planer/freigabe', async (req, res) => {
     try {
-        const { kwId, status } = req.body; // z.B. kwId: "2026-24"
+        const { kwId, status } = req.body;
         await db.collection('daten').updateOne(
             { id: "main" }, 
             { $set: { [`freigaben.${kwId}`]: status } }
@@ -67,6 +67,25 @@ app.post('/api/planer/freigabe', async (req, res) => {
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: "Fehler bei Freigabe" });
+    }
+});
+
+// --- MITARBEITER TERMIN UPDATE (NEU) ---
+app.post('/api/mitarbeiter/termin/update', async (req, res) => {
+    try {
+        const { id, von, bis, geaendertVon } = req.body;
+        await db.collection('daten').updateOne(
+            { "termine.id": parseInt(id) },
+            { $set: { 
+                "termine.$.von_uhrzeit": von,
+                "termine.$.bis_uhrzeit": bis,
+                "termine.$.istGeaendert": true,
+                "termine.$.geaendertVon": geaendertVon
+            }}
+        );
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: "Fehler beim Update" });
     }
 });
 
@@ -124,7 +143,7 @@ app.post('/api/planer/termin', async (req, res) => {
         const { mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit } = req.body;
         await db.collection('daten').updateOne(
             { id: "main" }, 
-            { $push: { termine: { id: Date.now(), mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit, status: "ENTWURF" } } }
+            { $push: { termine: { id: Date.now(), mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit, status: "ENTWURF", istGeaendert: false } } }
         );
         res.json({ success: true });
     } catch (e) {
