@@ -74,7 +74,6 @@
                 document.getElementById('btn-freigabe').innerText = (d.freigaben?.[kwId]) ? "Plan ist FREIGEGEBEN" : "Plan ist ENTWURF";
                 document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
 
-                // Mitarbeiter Sidebar
                 document.getElementById('mitarbeiter-liste-sidebar').innerHTML = (d.mitarbeiterListe || []).map(m => `
                     <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
                         <span>${m.name}</span>
@@ -85,17 +84,17 @@
                         </div>
                     </div>`).join('');
                 
-                // Wünsche Sidebar
+                // Wunsch Liste mit korrekter Zeit-Anzeige
                 document.getElementById('wunsch-liste-sidebar').innerHTML = (wuensche || []).map(w => `
                     <div class="p-2 bg-yellow-50 rounded border border-yellow-200">
                         <p class="font-bold text-xs">${w.mitarbeiter}</p>
-                        <p class="text-[10px]">${w.datum} | ${w.grund}</p>
-                        <button onclick="wunschBestaetigen('${w.id}')" class="bg-green-600 text-white w-full mt-2 py-1 rounded text-[10px]">Als Termin übernehmen</button>
+                        <p class="text-[10px]">${w.datum} | ${w.zeit || "---"} Uhr</p>
+                        <p class="text-[10px] italic">${w.grund || ""}</p>
+                        <button onclick="wunschBestaetigen(${w.id})" class="bg-green-600 text-white w-full mt-2 py-1 rounded text-[10px]">Als Termin übernehmen</button>
                     </div>`).join('');
 
                 document.getElementById('termin-ma').innerHTML = (d.mitarbeiterListe || []).map(m => `<option value="${m.name}">${m.name}</option>`).join('');
 
-                // Kalender Matrix
                 let tage = [];
                 for(let i=0; i<7; i++) {
                     let tag = new Date(aktuellerMontag);
@@ -123,17 +122,20 @@
             } catch (e) { console.error("Ladefehler:", e); }
         }
 
-        async function wunschBestaetigen(id) { await fetch('/api/planer/wunsch/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
+        // WICHTIG: Die ID hier direkt als Number übergeben, nicht als String in Anführungszeichen
+        async function wunschBestaetigen(id) { 
+            await fetch('/api/planer/wunsch/bestaetigen', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ id: Number(id) }) 
+            }); 
+            ladeDashboard(); 
+        }
+
         async function sortiereMitarbeiter(name, richtung) { await fetch('/api/planer/mitarbeiter/sortieren', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, richtung }) }); ladeDashboard(); }
         async function bestaetigen(id) { await fetch('/api/planer/termin/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
         async function terminAnlegen() { const t = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
-        async function mitarbeiterAnlegen() { const name = document.getElementById('new-ma').value; await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); ladeDashboard(); }
         async function mitarbeiterLoeschen(name) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); }
         async function terminLoeschen(id) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); }
         async function toggleFreigabe() { const kwId = getKwId(aktuellerMontag); await fetch('/api/planer/freigabe', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ kwId, status: !document.getElementById('btn-freigabe').innerText.includes("FREI") }) }); ladeDashboard(); }
-        function wocheBlaettern(n) { aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7)); ladeDashboard(); }
-        
-        window.onload = ladeDashboard;
-    </script>
-</body>
-</html>
+        function wocheBlaettern(n) { aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7)); l
