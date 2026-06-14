@@ -2,35 +2,49 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cito Care Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center h-screen">
     <div class="bg-white p-8 rounded-xl shadow-md w-96">
-        <h2 class="text-xl font-bold mb-4">Cito Care Anmeldung</h2>
-        <input id="name" placeholder="Name" class="w-full border p-2 mb-2 rounded">
-        <input id="pass" type="password" placeholder="Passwort" class="w-full border p-2 mb-4 rounded">
-        <button onclick="login()" class="w-full bg-blue-600 text-white p-2 rounded">Login</button>
-    </div>
-<script>
-    async function login() {
-        const name = document.getElementById('name').value;
-        const passwort = document.getElementById('pass').value;
-
-        const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, passwort })
-        });
+        <h2 class="text-xl font-bold mb-6 text-center text-blue-800">Cito Care Anmeldung</h2>
         
-        const data = await res.json();
-        if (res.ok) {
-            // WICHTIG: Name im Browser speichern, damit er in mitarbeiter.html bekannt ist
-            localStorage.setItem('mitarbeiterName', name.trim().toLowerCase());
-            window.location.href = data.role === 'planer' ? 'planer.html' : 'mitarbeiter.html';
-        } else {
-            alert("Login fehlgeschlagen: " + (data.error || "Unbekannter Fehler"));
+        <div class="space-y-4">
+            <input id="name" type="text" placeholder="Name" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400 outline-none">
+            <input id="pass" type="password" placeholder="Passwort" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-400 outline-none">
+            <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded font-bold transition duration-200">Login</button>
+        </div>
+    </div>
+
+    <script>
+        async function login() {
+            const nameInput = document.getElementById('name').value;
+            const passwort = document.getElementById('pass').value;
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: nameInput, passwort })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    // Speichere den Original-Namen (wie vom Server zurückgegeben), um Konsistenz zu wahren
+                    localStorage.setItem('mitarbeiterName', data.name);
+                    
+                    // Weiterleitung basierend auf der Rolle vom Server
+                    window.location.href = data.role === 'planer' ? 'planer.html' : 'mitarbeiter.html';
+                } else {
+                    alert("Login fehlgeschlagen: " + (data.error || "Unbekannter Fehler"));
+                }
+            } catch (e) {
+                console.error("Login-Fehler:", e);
+                alert("Verbindung zum Server konnte nicht hergestellt werden.");
+            }
         }
-    }
     </script>
 </body>
 </html>
