@@ -16,11 +16,13 @@ async function startServer() {
         db = client.db("CitoCareDB");
         app.listen(port, '0.0.0.0');
         console.log("Server läuft auf Port " + port);
-    } catch (err) { console.error("Verbindungsfehler:", err); }
+    } catch (err) { 
+        console.error("Verbindungsfehler:", err); 
+    }
 }
 startServer();
 
-// LOGIN
+// --- LOGIN ROUTE ---
 app.post('/api/login', async (req, res) => {
     const { name } = req.body;
     const data = await db.collection('daten').findOne({ id: "main" });
@@ -34,11 +36,10 @@ app.post('/api/login', async (req, res) => {
     else res.status(401).json({ error: "Name nicht gefunden" });
 });
 
-// DASHBOARD DATEN (Hier werden alle Arrays mitgeschickt!)
+// --- DASHBOARD DATEN ---
 app.get('/api/planer/dashboard', async (req, res) => {
     try {
         const data = await db.collection('daten').findOne({ id: "main" });
-        // Sende alle Felder, die dein Frontend erwartet
         res.json(data || { 
             mitarbeiter: [], 
             termine: [], 
@@ -47,5 +48,19 @@ app.get('/api/planer/dashboard', async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ error: "Fehler beim Laden" });
+    }
+});
+
+// --- NEUER TERMIN EINTRAGEN ---
+app.post('/api/planer/termin-eintragen', async (req, res) => {
+    try {
+        const { mitarbeiter, kunde, datum } = req.body;
+        await db.collection('daten').updateOne(
+            { id: "main" },
+            { $push: { termine: { mitarbeiter, kunde, datum } } }
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: "Fehler beim Eintragen" });
     }
 });
