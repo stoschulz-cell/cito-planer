@@ -76,7 +76,6 @@
                                 const termin = termineMA.find(x => x.datum === t);
                                 if (!termin) return '<td class="p-2 border"></td>';
                                 
-                                // ROBUSTE LOGIK: Versteht neues Format (Original/Aktuell) & altes Format
                                 let v = { von: "00:00", bis: "00:00" };
                                 if (termin.original && termin.original.von) {
                                     v = termin.hatAenderung ? termin.aktuell : termin.original;
@@ -86,12 +85,12 @@
                                 
                                 const isOwner = m.name === meinName;
 
-                                return `<td class="p-2 border text-[11px] h-20 ${termin.hatAenderung ? 'bg-orange-50' : ''}">
+                                return `<td class="p-2 border text-[11px] h-20 ${termin.hatAenderung ? 'bg-orange-100' : ''}">
                                     <b>${termin.kunde}</b><br>
                                     ${isOwner ? `
                                         <input type="time" id="von-${termin.id}" value="${v.von}" class="border w-16 text-xs block">
                                         <input type="time" id="bis-${termin.id}" value="${v.bis}" class="border w-16 text-xs block mt-1">
-                                        <button onclick="terminVerschieben(${termin.id})" class="bg-green-500 text-white px-2 py-1 text-[10px] mt-1 rounded">Speichern</button>
+                                        <button onclick="terminVerschieben(${termin.id})" class="bg-blue-600 text-white px-2 py-1 text-[10px] mt-1 rounded">Verschieben</button>
                                     ` : `${v.von}-${v.bis}`}
                                 </td>`;
                             }).join('')}
@@ -104,12 +103,13 @@
         async function terminVerschieben(id) {
             const neueVon = document.getElementById(`von-${id}`).value;
             const neueBis = document.getElementById(`bis-${id}`).value;
-            await fetch('/api/mitarbeiter/verschieben', {
+            // Nutzt die neue Route, die 'hatAenderung' auf true setzt
+            await fetch('/api/mitarbeiter/verschieben-als-aenderung', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ id, neueVon, neueBis })
             });
-            alert("Verschoben!");
+            alert("Änderung gespeichert! Der Planer wird informiert.");
             ladeUebersicht();
         }
 

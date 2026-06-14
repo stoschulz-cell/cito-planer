@@ -44,17 +44,24 @@ app.get('/api/planer/dashboard', async (req, res) => {
 });
 
 // --- TERMIN LOGIK ---
-app.post('/api/mitarbeiter/verschieben', async (req, res) => {
+// ROUTE FÜR MITARBEITER: Markiert als Änderung (Orange in Planer-Ansicht)
+app.post('/api/mitarbeiter/verschieben-als-aenderung', async (req, res) => {
     try {
         const { id, neueVon, neueBis } = req.body;
         await db.collection('daten').updateOne(
             { id: "main", "termine.id": Number(id) },
-            { $set: { "termine.$.aktuell": { von: neueVon, bis: neueBis }, "termine.$.hatAenderung": true } }
+            { 
+                $set: { 
+                    "termine.$.aktuell": { von: neueVon, bis: neueBis },
+                    "termine.$.hatAenderung": true 
+                } 
+            }
         );
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fehler beim Verschieben" }); }
 });
 
+// ROUTE FÜR PLANER: Bestätigt die Änderung
 app.post('/api/planer/termin/bestaetigen', async (req, res) => {
     try {
         const { id } = req.body;

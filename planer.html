@@ -103,7 +103,6 @@
                             const termin = termineMA.find(x => x.datum === t);
                             if (!termin) return '<td class="p-2 border"></td>';
                             
-                            // ROBUSTE LOGIK: Prüft neues Format, sonst Fallback auf altes
                             let v = { von: "00:00", bis: "00:00" };
                             if (termin.original && termin.original.von) {
                                 v = termin.hatAenderung ? termin.aktuell : termin.original;
