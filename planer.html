@@ -16,9 +16,21 @@
             <div class="col-span-1 border-r">
                 <h3 class="font-bold mb-4">Mitarbeiter</h3>
                 <div id="mitarbeiter-liste-sidebar" class="space-y-2"></div>
-                <div class="mt-6">
-                    <input id="new-ma" placeholder="Neuer Name" class="border p-2 w-full text-sm rounded">
-                    <button onclick="mitarbeiterAnlegen()" class="bg-blue-600 text-white w-full mt-2 py-2 rounded text-sm hover:bg-blue-700">Mitarbeiter Anlegen</button>
+                <div class="mt-6 border-t pt-4">
+                    <input id="new-ma" placeholder="Neuer Name" class="border p-2 w-full text-sm rounded mb-2">
+                    <button onclick="mitarbeiterAnlegen()" class="bg-blue-600 text-white w-full py-2 rounded text-sm hover:bg-blue-700">Anlegen</button>
+                </div>
+
+                <div class="mt-8 border-t pt-4">
+                    <h3 class="font-bold mb-2">Termin eintragen</h3>
+                    <select id="termin-ma" class="w-full border p-2 mb-2 text-sm rounded"></select>
+                    <input id="termin-kunde" placeholder="Kunde" class="w-full border p-2 mb-2 text-sm rounded">
+                    <input id="termin-datum" type="date" class="w-full border p-2 mb-2 text-sm rounded">
+                    <div class="flex gap-2 mb-2">
+                        <input id="termin-von" type="time" class="w-full border p-2 text-sm rounded">
+                        <input id="termin-bis" type="time" class="w-full border p-2 text-sm rounded">
+                    </div>
+                    <button onclick="terminAnlegen()" class="bg-green-600 text-white w-full py-2 rounded text-sm hover:bg-green-700">Speichern</button>
                 </div>
             </div>
 
@@ -40,18 +52,21 @@
     </div>
 
     <script>
-        // Daten vom Server laden
         async function ladeDashboard() {
             const res = await fetch('/api/planer/dashboard');
             const d = await res.json();
             
-            // Mitarbeiter-Liste in Sidebar rendern (mit Lösch-Button)
+            // Sidebar rendern
             document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
                 <div class="flex justify-between items-center text-sm p-2 border-b">
                     <span>${m.name}</span>
-                    <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 hover:text-red-700 font-bold">✕</button>
+                    <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold">✕</button>
                 </div>
             `).join('');
+
+            // Dropdown für Termin-MA füllen
+            document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => 
+                `<option value="${m.name}">${m.name}</option>`).join('');
 
             // Matrix rendern
             document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => `
@@ -64,25 +79,36 @@
             `).join('');
         }
 
-        // Mitarbeiter anlegen
         async function mitarbeiterAnlegen() {
             const name = document.getElementById('new-ma').value;
             if(!name) return;
-            await fetch('/api/planer/mitarbeiter', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({ name }) 
-            });
+            await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
             document.getElementById('new-ma').value = '';
             ladeDashboard();
         }
 
-        // Mitarbeiter löschen
         async function mitarbeiterLoeschen(name) {
-            if(confirm(`Möchtest du ${name} wirklich löschen?`)) {
+            if(confirm(`Wirklich ${name} löschen?`)) {
                 await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' });
                 ladeDashboard();
             }
+        }
+
+        async function terminAnlegen() {
+            const termin = {
+                mitarbeiter: document.getElementById('termin-ma').value,
+                kunde: document.getElementById('termin-kunde').value,
+                datum: document.getElementById('termin-datum').value,
+                von_uhrzeit: document.getElementById('termin-von').value,
+                bis_uhrzeit: document.getElementById('termin-bis').value
+            };
+            await fetch('/api/planer/termin', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify(termin) 
+            });
+            alert("Termin gespeichert!");
+            ladeDashboard();
         }
 
         window.onload = ladeDashboard;

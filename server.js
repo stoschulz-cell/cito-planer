@@ -84,9 +84,10 @@ app.delete('/api/planer/mitarbeiter/:name', async (req, res) => {
 // --- TERMIN ANLEGEN ---
 app.post('/api/planer/termin', async (req, res) => {
     try {
+        const { mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit } = req.body;
         await db.collection('daten').updateOne(
             { id: "main" }, 
-            { $push: { termine: { ...req.body, id: Date.now(), status: "ENTWURF" } } }
+            { $push: { termine: { id: Date.now(), mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit, status: "ENTWURF" } } }
         );
         res.json({ success: true });
     } catch (e) {
