@@ -6,7 +6,8 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static('public'));
 
-const uri = "mongodb+srv://stoschulz_db_user:DEIN_PASSWORT_HIER@cluster0.7ravkzz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+// Nutzt die in Render gespeicherte Variable
+const uri = process.env.MONGO_URI;
 const client = new MongoClient(uri);
 let db;
 
@@ -31,7 +32,6 @@ app.post('/api/planer/mitarbeiter', async (req, res) => {
     res.sendStatus(200);
 });
 
-// NEU: Endpunkt zum Speichern der Reihenfolge
 app.post('/api/planer/mitarbeiter/update-order', async (req, res) => {
     await db.collection('daten').updateOne({ id: "main" }, { $set: { mitarbeiter: req.body.neueListe } });
     res.sendStatus(200);

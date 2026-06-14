@@ -1,8 +1,20 @@
 <script>
     const API_URL = "/api";
     let fokusDatum = new Date();
-    
-    // Sortierung der Mitarbeiter ändern
+
+    function getWochenDaten(basisDatum) {
+        const dCopy = new Date(basisDatum);
+        const tag = dCopy.getDay();
+        const diff = dCopy.getDate() - tag + (tag === 0 ? -6 : 1);
+        const montag = new Date(dCopy.setDate(diff));
+        let tage = [];
+        for(let i=0; i<7; i++) {
+            const d = new Date(montag); d.setDate(montag.getDate() + i);
+            tage.push(d.toISOString().split('T')[0]);
+        }
+        return tage;
+    }
+
     window.mitarbeiterVerschieben = async function(index, richtung) {
         const antwort = await fetch(`${API_URL}/planer/dashboard`);
         const daten = await antwort.json();
@@ -24,8 +36,8 @@
     window.ladeDashboard = async function() {
         const antwort = await fetch(`${API_URL}/planer/dashboard`);
         const daten = await antwort.json();
-        
-        // Sidebar mit Pfeilen rendern
+        const wochenTage = getWochenDaten(fokusDatum);
+
         document.getElementById('mitarbeiter-liste-sidebar').innerHTML = daten.mitarbeiter.map((m, index) => `
             <div class="p-2 bg-gray-50 rounded-xl text-xs font-bold flex justify-between items-center border border-gray-100">
                 <span>${m}</span>
@@ -36,11 +48,9 @@
                 </div>
             </div>`).join('');
 
-        // Matrix zeichnen
         const matrixBody = document.getElementById('matrix-body');
         matrixBody.innerHTML = "";
-        const wochenTage = getWochenDaten(fokusDatum);
-
+        
         daten.mitarbeiter.forEach(m => {
             let row = document.createElement('tr');
             row.innerHTML = `<td class="p-3 font-bold border-r bg-gray-50 sticky left-0 z-10">${m}</td>`;
@@ -54,6 +64,11 @@
             });
             matrixBody.appendChild(row);
         });
+    };
+
+    window.mitarbeiterLoeschen = async function(name) {
+        await fetch(`${API_URL}/planer/mitarbeiter/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        window.ladeDashboard();
     };
 
     window.terminVerschiebenPrompt = async function(id) {
@@ -70,6 +85,5 @@
         }
     };
 
-    // ... (restliche Funktionen: mitarbeiterLoeschen, mitarbeiterAnlegen, etc.)
     window.ladeDashboard();
 </script>
