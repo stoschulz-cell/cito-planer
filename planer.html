@@ -7,44 +7,84 @@
 </head>
 <body class="bg-gray-100 p-5">
     <div class="max-w-7xl mx-auto">
-        <div class="bg-blue-700 p-4 rounded-t-xl text-white flex justify-between">
+        <div class="bg-blue-700 p-4 rounded-t-xl text-white flex justify-between items-center">
             <h1 class="text-xl font-bold">Cito Care Zentrale</h1>
-            <button onclick="window.location.href='index.html'" class="bg-red-500 px-3 py-1 rounded text-sm">Abmelden</button>
+            <button onclick="window.location.href='index.html'" class="bg-red-500 px-3 py-1 rounded text-sm hover:bg-red-600">Abmelden</button>
         </div>
+        
         <div class="bg-white p-6 rounded-b-xl shadow grid grid-cols-4 gap-6">
             <div class="col-span-1 border-r">
                 <h3 class="font-bold mb-4">Mitarbeiter</h3>
                 <div id="mitarbeiter-liste-sidebar" class="space-y-2"></div>
-                <input id="new-ma" placeholder="Neuer Name" class="border p-1 mt-4 w-full text-xs">
-                <button onclick="mitarbeiterAnlegen()" class="bg-blue-600 text-white w-full mt-1 py-1 rounded text-xs">Anlegen</button>
+                <div class="mt-6">
+                    <input id="new-ma" placeholder="Neuer Name" class="border p-2 w-full text-sm rounded">
+                    <button onclick="mitarbeiterAnlegen()" class="bg-blue-600 text-white w-full mt-2 py-2 rounded text-sm hover:bg-blue-700">Mitarbeiter Anlegen</button>
+                </div>
             </div>
+
             <div class="col-span-3">
-                <table class="w-full border-collapse">
-                    <tr class="bg-gray-100">
-                        <th class="p-2 border">MA</th><th class="p-2 border">Mo</th><th class="p-2 border">Di</th>
-                        <th class="p-2 border">Mi</th><th class="p-2 border">Do</th><th class="p-2 border">Fr</th>
-                    </tr>
+                <h3 class="font-bold mb-4">Dienstplan-Matrix</h3>
+                <table class="w-full border-collapse border">
+                    <thead>
+                        <tr class="bg-gray-100 text-left">
+                            <th class="p-2 border">Mitarbeiter</th>
+                            <th class="p-2 border">Mo</th><th class="p-2 border">Di</th>
+                            <th class="p-2 border">Mi</th><th class="p-2 border">Do</th>
+                            <th class="p-2 border">Fr</th>
+                        </tr>
+                    </thead>
                     <tbody id="matrix-body"></tbody>
                 </table>
             </div>
         </div>
     </div>
+
     <script>
+        // Daten vom Server laden
         async function ladeDashboard() {
             const res = await fetch('/api/planer/dashboard');
             const d = await res.json();
-            document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => 
-                `<tr><td class="p-2 border font-bold">${m.name}</td><td colspan="5" class="border p-2">...</td></tr>`
-            ).join('');
-            document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => 
-                `<div class="text-sm">${m.name}</div>`
-            ).join('');
+            
+            // Mitarbeiter-Liste in Sidebar rendern (mit Lösch-Button)
+            document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
+                <div class="flex justify-between items-center text-sm p-2 border-b">
+                    <span>${m.name}</span>
+                    <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 hover:text-red-700 font-bold">✕</button>
+                </div>
+            `).join('');
+
+            // Matrix rendern
+            document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => `
+                <tr>
+                    <td class="p-2 border font-medium">${m.name}</td>
+                    <td class="p-2 border">-</td><td class="p-2 border">-</td>
+                    <td class="p-2 border">-</td><td class="p-2 border">-</td>
+                    <td class="p-2 border">-</td>
+                </tr>
+            `).join('');
         }
+
+        // Mitarbeiter anlegen
         async function mitarbeiterAnlegen() {
             const name = document.getElementById('new-ma').value;
-            await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
+            if(!name) return;
+            await fetch('/api/planer/mitarbeiter', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ name }) 
+            });
+            document.getElementById('new-ma').value = '';
             ladeDashboard();
         }
+
+        // Mitarbeiter löschen
+        async function mitarbeiterLoeschen(name) {
+            if(confirm(`Möchtest du ${name} wirklich löschen?`)) {
+                await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' });
+                ladeDashboard();
+            }
+        }
+
         window.onload = ladeDashboard;
     </script>
 </body>

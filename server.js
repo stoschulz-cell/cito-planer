@@ -68,7 +68,19 @@ app.post('/api/planer/mitarbeiter', async (req, res) => {
         res.status(500).json({ error: "Fehler beim Speichern" });
     }
 });
-
+// --- MITARBEITER LÖSCHEN ---
+app.delete('/api/planer/mitarbeiter/:name', async (req, res) => {
+    try {
+        const nameZuLoeschen = req.params.name;
+        await db.collection('daten').updateOne(
+            { id: "main" }, 
+            { $pull: { mitarbeiterListe: { name: nameZuLoeschen } } }
+        );
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: "Fehler beim Löschen" });
+    }
+});
 // --- TERMIN ANLEGEN ---
 app.post('/api/planer/termin', async (req, res) => {
     try {
