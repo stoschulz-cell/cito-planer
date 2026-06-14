@@ -52,13 +52,13 @@
                 const res = await fetch('/api/planer/dashboard');
                 const d = await res.json();
                 
+                // --- KORREKTE ISO-8601 KW BERECHNUNG ---
                 let d2 = new Date(aktuellerMontag);
-                d2.setHours(12,0,0,0);
-                let dayNum = (d2.getDay() + 6) % 7;
-                d2.setDate(d2.getDate() - dayNum + 3);
-                let jan4 = new Date(d2.getFullYear(), 0, 4);
-                let kw = Math.ceil(((d2 - jan4) / 86400000 + jan4.getDay() + 1) / 7);
+                d2.setDate(d2.getDate() + 4 - (d2.getDay() || 7)); // Auf Donnerstag setzen
+                let jahrStart = new Date(d2.getFullYear(), 0, 1);
+                let kw = Math.ceil((((d2 - jahrStart) / 86400000) + 1) / 7);
                 document.getElementById('kw-titel').innerText = `KW ${kw}`;
+                // ---------------------------------------
 
                 let tage = [];
                 for(let i=0; i<7; i++) {
