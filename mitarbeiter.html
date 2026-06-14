@@ -34,51 +34,19 @@
     </div>
 
     <script>
-        let meinName = (localStorage.getItem('mitarbeiterName') || "").trim().toLowerCase();
+        // Stabile Datums-Logik
+        let aktuellerMontag = new Date();
+        // Setze auf den letzten Montag (UTC um Probleme mit Sommerzeit zu vermeiden)
+        let day = aktuellerMontag.getUTCDay();
+        let diff = aktuellerMontag.getUTCDate() - day + (day === 0 ? -6 : 1);
+        aktuellerMontag.setUTCDate(diff);
+        aktuellerMontag.setUTCHours(0,0,0,0);
+
         document.getElementById('status-display').innerText = "Angemeldet als: " + (localStorage.getItem('mitarbeiterName') || "Unbekannt");
 
-        function getMontag(date) {
-            let d = new Date(date);
-            let day = d.getDay();
-            let diff = d.getDate() - day + (day === 0 ? -6 : 1);
-            d.setDate(diff);
-            d.setHours(0,0,0,0);
-            return d;
-        }
-
-        let aktuellerMontag = getMontag(new Date());
-
         function wocheBlaettern(n) { 
-            aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7)); 
+            aktuellerMontag.setUTCDate(aktuellerMontag.getUTCDate() + (n * 7)); 
             ladeUebersicht(); 
-        }
-
-        async function wunschSenden() {
-            const datum = document.getElementById('wunsch-datum').value;
-            const zeit = document.getElementById('wunsch-zeit').value;
-            const grund = document.getElementById('wunsch-grund').value;
-
-            if (!datum || !grund) return alert("Bitte Datum und Grund angeben!");
-
-            try {
-                const response = await fetch('/api/mitarbeiter/wunsch-einreichen', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ mitarbeiter: localStorage.getItem('mitarbeiterName'), datum, zeit, grund, status: 'pending' })
-                });
-                
-                if (response.ok) {
-                    alert("Wunsch erfolgreich an den Planer gesendet!");
-                    document.getElementById('wunsch-datum').value = '';
-                    document.getElementById('wunsch-grund').value = '';
-                    document.getElementById('wunsch-zeit').value = '';
-                } else {
-                    alert("Fehler beim Senden des Wunsches.");
-                }
-            } catch (e) {
-                console.error("Fehler:", e);
-                alert("Verbindungsfehler!");
-            }
         }
 
         async function ladeUebersicht() {
@@ -86,30 +54,35 @@
                 const res = await fetch('/api/planer/dashboard');
                 const d = await res.json();
                 
+                // KW Berechnung
                 let d2 = new Date(aktuellerMontag);
-                d2.setUTCDate(d2.getUTCDate() + 4 - (d2.getUTCDay()||7));
-                let jahrStart = new Date(Date.UTC(d2.getUTCFullYear(), 0, 1));
-                let kw = Math.ceil((((d2 - jahrStart) / 86400000) + 1) / 7);
+                let yearStart = new Date(Date.UTC(d2.getUTCFullYear(), 0, 1));
+                let kw = Math.ceil((((d2 - yearStart) / 86400000) + 1) / 7);
                 document.getElementById('kw-titel').innerText = `KW ${kw}`;
 
                 let tage = [];
                 for(let i=0; i<7; i++) {
                     let t = new Date(aktuellerMontag);
-                    t.setDate(t.getDate() + i);
+                    t.setUTCDate(t.getUTCDate() + i);
                     tage.push(t.toISOString().split('T')[0]);
+                }
+
+                if (!d.mitarbeiterListe) {
+                    document.getElementById('plan-container').innerHTML = "<p class='p-5 text-center text-red-500'>Keine Daten vom Server erhalten. Bitte Planer informieren.</p>";
+                    return;
                 }
 
                 let html = '<table class="w-full border-collapse border shadow-sm"><thead class="bg-blue-50 text-xs uppercase text-blue-900"><tr><th class="p-3 border">Mitarbeiter</th>';
                 ['Mo','Di','Mi','Do','Fr','Sa','So'].forEach((t,i) => html += `<th class="p-3 border">${t}<br>${tage[i].split('-')[2]}.${tage[i].split('-')[1]}</th>`);
                 html += '</tr></thead><tbody class="bg-white">';
 
-                (d.mitarbeiterListe || []).forEach(m => {
-                    const isOwner = (m.name.toLowerCase() === localStorage.getItem('mitarbeiterName').toLowerCase());
+                d.mitarbeiterListe.forEach(m => {
+                    const isOwner = (m.name.toLowerCase() === (localStorage.getItem('mitarbeiterName') || "").toLowerCase());
                     html += `<tr><td class="p-3 border font-bold ${isOwner ? 'bg-blue-100' : ''}">${m.name}</td>`;
                     tage.forEach(t => {
                         const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
                         if (!termin) {
-                            html += `<td class="border p-2"></td>`;
+                            html += `<td class="border p-2 h-16"></td>`;
                         } else {
                             let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
                             html += `<td class="border p-2 text-[10px] ${termin.hatAenderung ? 'bg-orange-100' : ''}">
@@ -121,23 +94,36 @@
                     html += '</tr>';
                 });
                 document.getElementById('plan-container').innerHTML = html + '</tbody></table>';
-            } catch (e) { console.error("Ladefehler:", e); }
+            } catch (e) { 
+                console.error("Ladefehler:", e); 
+                document.getElementById('plan-container').innerHTML = "<p class='p-5 text-center'>Verbindung zum Server fehlgeschlagen.</p>";
+            }
+        }
+
+        async function wunschSenden() {
+            const datum = document.getElementById('wunsch-datum').value;
+            const zeit = document.getElementById('wunsch-zeit').value;
+            const grund = document.getElementById('wunsch-grund').value;
+            if (!datum || !grund) return alert("Bitte Datum und Grund angeben!");
+            const response = await fetch('/api/mitarbeiter/wunsch-einreichen', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ mitarbeiter: localStorage.getItem('mitarbeiterName'), datum, zeit, grund, status: 'pending' })
+            });
+            if (response.ok) { alert("Wunsch gesendet!"); ladeUebersicht(); }
         }
 
         async function terminBearbeiten(id, datum, von, bis) {
             const neuesDatum = prompt("Neues Datum (YYYY-MM-DD):", datum);
             if (!neuesDatum) return;
-
             const neueVon = prompt("Neue Uhrzeit (von):", von);
             const neueBis = prompt("Neue Uhrzeit (bis):", bis);
-            
             if (neueVon && neueBis) {
                 await fetch('/api/mitarbeiter/verschieben-als-aenderung', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ id: Number(id), neuesDatum, neueVon, neueBis })
                 });
-                alert("Änderung zur Bestätigung an den Planer gesendet!");
                 ladeUebersicht();
             }
         }
