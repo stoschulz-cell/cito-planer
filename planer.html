@@ -7,41 +7,50 @@
 </head>
 <body class="bg-gray-100 p-5">
     <div class="max-w-7xl mx-auto">
-        <div class="bg-blue-700 p-4 rounded-t-xl text-white flex justify-between items-center">
+        <div class="bg-blue-700 p-4 rounded-t-xl text-white flex justify-between items-center shadow-lg">
             <h1 class="text-xl font-bold">Cito Care Zentrale</h1>
-            <button onclick="window.location.href='index.html'" class="bg-red-500 px-3 py-1 rounded text-sm hover:bg-red-600">Abmelden</button>
+            <button onclick="window.location.href='index.html'" class="bg-red-500 px-3 py-1 rounded text-sm font-semibold hover:bg-red-600">Abmelden</button>
         </div>
         
-        <div class="bg-white p-6 rounded-b-xl shadow grid grid-cols-4 gap-6">
-            <div class="col-span-1 border-r">
-                <h3 class="font-bold mb-4">Mitarbeiter</h3>
-                <div id="mitarbeiter-liste-sidebar" class="space-y-2"></div>
-                <div class="mt-6 border-t pt-4">
+        <div class="bg-white p-6 rounded-b-xl shadow-lg grid grid-cols-1 md:grid-cols-4 gap-8">
+            
+            <div class="md:col-span-1 border-r pr-4">
+                <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2">Mitarbeiter</h2>
+                <div id="mitarbeiter-liste-sidebar" class="space-y-2 mb-6"></div>
+                
+                <div class="bg-gray-50 p-3 rounded border">
                     <input id="new-ma" placeholder="Neuer Name" class="border p-2 w-full text-sm rounded mb-2">
-                    <button onclick="mitarbeiterAnlegen()" class="bg-blue-600 text-white w-full py-2 rounded text-sm hover:bg-blue-700">Mitarbeiter Anlegen</button>
+                    <button onclick="mitarbeiterAnlegen()" class="bg-blue-600 text-white w-full py-2 rounded text-sm font-bold hover:bg-blue-700">Mitarbeiter Anlegen</button>
                 </div>
-                <div class="mt-8 border-t pt-4">
-                    <h3 class="font-bold mb-2">Termin eintragen</h3>
+
+                <h2 class="text-lg font-bold mt-8 mb-4 text-green-800 border-b pb-2">Neuer Termin</h2>
+                <div class="bg-gray-50 p-3 rounded border">
                     <select id="termin-ma" class="w-full border p-2 mb-2 text-sm rounded"></select>
                     <input id="termin-kunde" placeholder="Kunde" class="w-full border p-2 mb-2 text-sm rounded">
                     <input id="termin-datum" type="date" class="w-full border p-2 mb-2 text-sm rounded">
-                    <div class="flex gap-2 mb-2"><input id="termin-von" type="time" class="w-full border p-2 text-sm rounded"><input id="termin-bis" type="time" class="w-full border p-2 text-sm rounded"></div>
-                    <button onclick="terminAnlegen()" class="bg-green-600 text-white w-full py-2 rounded text-sm hover:bg-green-700">Speichern</button>
+                    <div class="flex gap-2 mb-2">
+                        <input id="termin-von" type="time" class="w-full border p-2 text-sm rounded">
+                        <input id="termin-bis" type="time" class="w-full border p-2 text-sm rounded">
+                    </div>
+                    <button onclick="terminAnlegen()" class="bg-green-600 text-white w-full py-2 rounded text-sm font-bold hover:bg-green-700">Speichern</button>
                 </div>
             </div>
 
-            <div class="col-span-3">
-                <div class="flex justify-between items-center mb-4">
-                    <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-1 rounded text-sm">« Vorherige Woche</button>
-                    <h3 id="kw-titel" class="font-bold text-lg"></h3>
-                    <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-4 py-1 rounded text-sm">Nächste Woche »</button>
+            <div class="md:col-span-3">
+                <div class="flex justify-between items-center mb-6">
+                    <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold hover:bg-gray-300">« Vorherige Woche</button>
+                    <h2 id="kw-titel" class="font-bold text-xl text-blue-900"></h2>
+                    <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold hover:bg-gray-300">Nächste Woche »</button>
                 </div>
-                <table class="w-full border-collapse border">
-                    <thead>
-                        <tr id="table-header" class="bg-gray-100 text-left text-xs"></tr>
-                    </thead>
-                    <tbody id="matrix-body"></tbody>
-                </table>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse border shadow-sm">
+                        <thead>
+                            <tr id="table-header" class="bg-blue-50 text-left text-xs uppercase text-blue-900"></tr>
+                        </thead>
+                        <tbody id="matrix-body" class="bg-white"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -54,7 +63,17 @@
             const res = await fetch('/api/planer/dashboard');
             const d = await res.json();
             
-            document.getElementById('kw-titel').innerText = `Kalenderwoche: ${getKW(aktuellerMontag)}`;
+            document.getElementById('kw-titel').innerText = `KW ${getKW(aktuellerMontag)}`;
+
+            // Mitarbeiter Sidebar
+            document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
+                <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
+                    <span>${m.name}</span>
+                    <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold hover:bg-red-100 px-2 py-1 rounded">✕</button>
+                </div>
+            `).join('');
+
+            // Termine rendern
             let tage = [];
             for(let i=0; i<7; i++) {
                 let tag = new Date(aktuellerMontag);
@@ -62,24 +81,65 @@
                 tage.push(tag.toISOString().split('T')[0]);
             }
 
-            // Header mit Datum
             const wochentage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-            document.getElementById('table-header').innerHTML = '<th class="p-2 border">Mitarbeiter</th>' + 
-                tage.map((t, i) => `<th class="p-2 border">${wochentage[i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('');
+            document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
+                tage.map((t, i) => `<th class="p-3 border">${wochentage[i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('');
 
             document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => `
-                <tr>
-                    <td class="p-2 border font-medium text-sm">${m.name}</td>
+                <tr class="hover:bg-gray-50">
+                    <td class="p-3 border font-semibold text-sm text-gray-700">${m.name}</td>
                     ${tage.map(t => {
                         const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
-                        return `<td class="p-2 border text-[10px] h-16 align-top">
-                            ${termin ? `<b>${termin.kunde}</b><br>${termin.von_uhrzeit} <button onclick="terminLoeschen(${termin.id})" class="text-red-500 font-bold ml-1">✕</button>` : ''}
+                        return `<td class="p-2 border text-[11px] h-20 align-top">
+                            ${termin ? `<div class="bg-blue-100 p-1 rounded border border-blue-200">
+                                <b>${termin.kunde}</b><br>${termin.von_uhrzeit}
+                                <button onclick="terminLoeschen(${termin.id})" class="text-red-600 font-bold block mt-1 hover:text-red-800">Löschen</button>
+                            </div>` : ''}
                         </td>`;
                     }).join('')}
                 </tr>
             `).join('');
             
             document.getElementById('termin-ma').innerHTML = d.mitarbeiterListe.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+        }
+
+        // Hilfsfunktionen (getKW, wocheBlaettern, etc.) bleiben gleich...
+        function getKW(date) {
+            let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+            return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1)/7);
+        }
+
+        function wocheBlaettern(n) {
+            aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7));
+            ladeDashboard();
+        }
+
+        async function mitarbeiterAnlegen() {
+            const name = document.getElementById('new-ma').value;
+            if(!name) return;
+            await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) });
+            document.getElementById('new-ma').value = '';
+            ladeDashboard();
+        }
+
+        async function mitarbeiterLoeschen(name) {
+            if(confirm(`Wirklich ${name} löschen?`)) {
+                await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' });
+                ladeDashboard();
+            }
+        }
+
+        async function terminAnlegen() {
+            const termin = {
+                mitarbeiter: document.getElementById('termin-ma').value,
+                kunde: document.getElementById('termin-kunde').value,
+                datum: document.getElementById('termin-datum').value,
+                von_uhrzeit: document.getElementById('termin-von').value,
+                bis_uhrzeit: document.getElementById('termin-bis').value
+            };
+            await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(termin) });
+            ladeDashboard();
         }
 
         async function terminLoeschen(id) {
@@ -89,8 +149,6 @@
             }
         }
 
-        // ... (restliche Funktionen: mitarbeiterAnlegen, mitarbeiterLoeschen, wocheBlaettern, terminAnlegen)
-        // WICHTIG: Füge in server.js die neue Route app.delete('/api/planer/termin/:id') hinzu!
         window.onload = ladeDashboard;
     </script>
 </body>
