@@ -1,11 +1,9 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
-const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
-// Nutzt das aktuelle Verzeichnis, in dem server.js liegt
 app.use(express.static(__dirname));
 
 const uri = process.env.MONGO_URI;
@@ -16,24 +14,32 @@ async function startServer() {
     try {
         await client.connect();
         db = client.db("CitoCareDB");
-        console.log("Cito Care Server läuft auf Port 3000");
         app.listen(port, '0.0.0.0');
-    } catch (err) { console.error("Verbindungsfehler:", err); }
+        console.log("Server läuft.");
+    } catch (err) { console.error(err); }
 }
 startServer();
 
-// API Endpunkte
+// --- ROLLEN-LOGIN ---
+app.post('/api/login', async (req, res) => {
+    const { name } = req.body;
+    const data = await db.collection('daten').findOne({ id: "main" });
+    const isPlaner = data.planerListe && data.planerListe.includes(name);
+    const isMitarbeiter = data.mitarbeiter.includes(name);
+    
+    if (isPlaner) res.json({ role: 'planer' });
+    else if (isMitarbeiter) res.json({ role: 'mitarbeiter' });
+    else res.status(401).json({ error: "Name nicht gefunden" });
+});
+
+// --- DASHBOARD DATEN ---
 app.get('/api/planer/dashboard', async (req, res) => {
-    let data = await db.collection('daten').findOne({ id: "main" }) || 
-                 { mitarbeiter: [], termine: [], wunschfrei: [], wunschtermineKlienten: [] };
+    const data = await db.collection('daten').findOne({ id: "main" }) || 
+                 { mitarbeiter: [], termine: [] };
     res.json(data);
 });
 
-app.post('/api/planer/mitarbeiter', async (req, res) => {
-    await db.collection('daten').updateOne({ id: "main" }, { $push: { mitarbeiter: req.body.name } }, { upsert: true });
-    res.sendStatus(200);
-});
-
+// --- MITARBEITER LOGIK ---
 app.post('/api/planer/mitarbeiter/update-order', async (req, res) => {
     await db.collection('daten').updateOne({ id: "main" }, { $set: { mitarbeiter: req.body.neueListe } });
     res.sendStatus(200);
@@ -44,14 +50,10 @@ app.delete('/api/planer/mitarbeiter/:name', async (req, res) => {
     res.sendStatus(200);
 });
 
+// --- TERMIN LOGIK ---
 app.post('/api/planer/termin', async (req, res) => {
     const termin = { id: Date.now(), ...req.body, status: 'PLANUNG' };
     await db.collection('daten').updateOne({ id: "main" }, { $push: { termine: termin } }, { upsert: true });
-    res.sendStatus(200);
-});
-
-app.delete('/api/planer/termin/:id', async (req, res) => {
-    await db.collection('daten').updateOne({ id: "main" }, { $pull: { termine: { id: parseInt(req.params.id) } } });
     res.sendStatus(200);
 });
 
