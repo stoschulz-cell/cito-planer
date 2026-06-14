@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+    <meta charset="UTF-8">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center h-screen">
@@ -12,22 +13,24 @@
     </div>
     <script>
     async function login() {
-    const name = document.getElementById('name').value;
-    const passwort = document.getElementById('pass').value;
+        const name = document.getElementById('name').value;
+        const passwort = document.getElementById('pass').value;
 
-    const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, // WICHTIG!
-        body: JSON.stringify({ name, passwort })        // WICHTIG!
-    });
-    
-    const data = await res.json();
-    if (res.ok) { // Prüft, ob Status 200 zurückkam
-        window.location.href = data.role === 'planer' ? 'planer.html' : 'mitarbeiter.html';
-    } else {
-        alert("Login fehlgeschlagen: " + (data.error || "Unbekannter Fehler"));
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, passwort })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            // WICHTIG: Name wird hier sicher für die nächste Seite gespeichert
+            localStorage.setItem('mitarbeiterName', name.trim().toLowerCase());
+            window.location.href = data.role === 'planer' ? 'planer.html' : 'mitarbeiter.html';
+        } else {
+            alert("Login fehlgeschlagen: " + (data.error || "Unbekannter Fehler"));
+        }
     }
-}
     </script>
 </body>
 </html>
