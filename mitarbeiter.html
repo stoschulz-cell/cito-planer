@@ -81,11 +81,20 @@
                                 let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
                                 const isOwner = m.name === meinName;
 
-                                return `<td class="p-2 border text-[11px] h-20 ${termin.hatAenderung ? 'bg-orange-100' : ''} ${isOwner ? 'cursor-pointer hover:bg-blue-50' : ''}" 
-                                            ${isOwner ? `onclick="terminBearbeiten('${termin.id}', '${termin.kunde}', '${v.von}', '${v.bis}')"` : ''}>
-                                    <b>${termin.kunde}</b><br>
-                                    ${v.von} - ${v.bis}
-                                    ${termin.hatAenderung ? '<br><span class="text-orange-600 font-bold">Änderung offen</span>' : ''}
+                                return `<td class="p-2 border text-[11px] h-20 ${termin.hatAenderung ? 'bg-orange-100' : ''}">
+                                    <div class="flex flex-col h-full justify-between">
+                                        <div>
+                                            <b>${termin.kunde}</b><br>
+                                            ${v.von} - ${v.bis}
+                                            ${termin.hatAenderung ? '<br><span class="text-orange-600 font-bold">Änderung offen</span>' : ''}
+                                        </div>
+                                        ${isOwner ? `
+                                            <button onclick="terminBearbeiten('${termin.id}', '${termin.kunde}', '${v.von}', '${v.bis}')" 
+                                                    class="bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] w-full mt-1">
+                                                Zeit ändern
+                                            </button>
+                                        ` : ''}
+                                    </div>
                                 </td>`;
                             }).join('')}
                         </tr>
@@ -99,13 +108,22 @@
             const neueBis = prompt(`Zeit anpassen für ${kunde} (bis):`, alteBis);
 
             if (neueVon && neueBis) {
-                await fetch('/api/mitarbeiter/verschieben-als-aenderung', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ id: Number(id), neueVon, neueBis })
-                });
-                alert("Änderung an Planer gesendet!");
-                ladeUebersicht();
+                try {
+                    const res = await fetch('/api/mitarbeiter/verschieben-als-aenderung', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ id: Number(id), neueVon, neueBis })
+                    });
+                    if (res.ok) {
+                        alert("Änderung an Planer gesendet!");
+                        ladeUebersicht();
+                    } else {
+                        alert("Fehler beim Speichern auf dem Server.");
+                    }
+                } catch (e) {
+                    console.error("Netzwerkfehler:", e);
+                    alert("Verbindungsfehler!");
+                }
             }
         }
 
