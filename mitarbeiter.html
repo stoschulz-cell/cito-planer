@@ -6,20 +6,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 p-5">
-    <div class="max-w-7xl mx-auto bg-white p-6 rounded shadow">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-xl font-bold">Dienstplan Übersicht</h1>
-            <div class="flex items-center gap-4">
-                <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">« Vorherige</button>
-                <h2 id="kw-titel" class="font-bold text-lg text-blue-900 w-40 text-center"></h2>
-                <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">Nächste »</button>
-                <button onclick="window.location.href='index.html'" class="bg-red-500 text-white px-4 py-2 rounded text-sm font-bold">Abmelden</button>
-            </div>
-        </div>
-
-        <div id="plan-container">
-            <p class="text-center p-10 text-gray-500">Lade Plan...</p>
-        </div>
+    <div id="plan-container" class="max-w-7xl mx-auto bg-white p-6 rounded shadow">
+        <p>Lade Dienstplan...</p>
     </div>
 
     <script>
@@ -28,108 +16,35 @@
         aktuellerMontag.setDate(aktuellerMontag.getDate() - (aktuellerMontag.getDay() + 6) % 7);
         aktuellerMontag.setHours(0,0,0,0);
 
-        function getKwId(date) {
-            let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-            let kw = Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1)/7);
-            return `${d.getUTCFullYear()}-${kw}`;
-        }
-
         async function ladeUebersicht() {
             const container = document.getElementById('plan-container');
-            try {
-                const res = await fetch('/api/planer/dashboard');
-                const d = await res.json();
-                const kwId = getKwId(aktuellerMontag);
+            const res = await fetch('/api/planer/dashboard');
+            const d = await res.json();
+
+            // Debug: Zeige uns, wen das System gerade "sieht"
+            console.log("Eingeloggter Name:", meinName);
+
+            let html = `<table class="w-full border-collapse border"><tbody id="matrix-body"></tbody></table>`;
+            container.innerHTML = html;
+
+            let body = document.getElementById('matrix-body');
+            (d.mitarbeiterListe || []).forEach(m => {
+                let row = document.createElement('tr');
+                row.innerHTML = `<td class="p-3 border font-bold">${m.name}</td>`;
                 
-                document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
-
-                if (!d.freigaben?.[kwId]) {
-                    container.innerHTML = `<div class="p-10 text-center bg-yellow-50">Plan ist ENTWURF.</div>`;
-                    return;
-                }
-
-                container.innerHTML = `
-                    <div class="overflow-x-auto">
-                        <table class="w-full border-collapse border">
-                            <thead><tr id="table-header" class="bg-blue-50 text-left text-xs uppercase"></tr></thead>
-                            <tbody id="matrix-body" class="bg-white"></tbody>
-                        </table>
-                    </div>`;
-
-                let tage = [];
+                // Erstelle 7 Spalten für die Woche
                 for(let i=0; i<7; i++) {
-                    let tag = new Date(aktuellerMontag);
-                    tag.setDate(tag.getDate() + i);
-                    tage.push(tag.toISOString().split('T')[0]);
+                    let cell = document.createElement('td');
+                    cell.className = "p-2 border";
+                    // Button immer anzeigen zum Testen!
+                    cell.innerHTML = `
+                        <button onclick="alert('Button geklickt!')" class="bg-red-500 text-white p-2 rounded">
+                            Ändern
+                        </button>`;
+                    row.appendChild(cell);
                 }
-
-                document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
-                    tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('');
-
-                document.getElementById('matrix-body').innerHTML = (d.mitarbeiterListe || []).map(m => {
-                    const termineMA = (d.termine || []).filter(x => x.mitarbeiter === m.name && tage.includes(x.datum));
-                    return `
-                        <tr class="hover:bg-gray-50">
-                            <td class="p-3 border font-bold text-sm">${m.name}</td>
-                            ${tage.map(t => {
-                                const termin = termineMA.find(x => x.datum === t);
-                                if (!termin) return '<td class="p-2 border"></td>';
-                                
-                                let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
-                                const isOwner = m.name === meinName;
-
-                                return `<td class="p-2 border text-[11px] h-20 ${termin.hatAenderung ? 'bg-orange-100' : ''}">
-                                    <div class="flex flex-col h-full justify-between">
-                                        <div>
-                                            <b>${termin.kunde}</b><br>
-                                            ${v.von} - ${v.bis}
-                                        </div>
-                                        ${isOwner ? `
-                                            <button onclick="terminBearbeiten('${termin.id}', '${v.von}', '${v.bis}')" 
-                                                    class="bg-blue-600 text-white px-1 rounded text-[9px] w-full mt-1">
-                                                Ändern
-                                            </button>
-                                        ` : ''}
-                                    </div>
-                                </td>`;
-                            }).join('')}
-                        </tr>
-                    `;
-                }).join('');
-            } catch (err) { 
-                console.error("Ladefehler:", err);
-                container.innerHTML = "Fehler beim Laden der Daten."; 
-            }
-        }
-
-        async function terminBearbeiten(id, von, bis) {
-            const neueVon = prompt("Neue Uhrzeit (von):", von);
-            const neueBis = prompt("Neue Uhrzeit (bis):", bis);
-
-            if (neueVon && neueBis) {
-                try {
-                    const response = await fetch('/api/mitarbeiter/verschieben-als-aenderung', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ id: Number(id), neueVon, neueBis })
-                    });
-                    
-                    if (response.ok) {
-                        alert("Änderung wurde zur Bestätigung an den Planer gesendet!");
-                        ladeUebersicht();
-                    } else {
-                        alert("Fehler bei der Übertragung.");
-                    }
-                } catch (e) {
-                    alert("Verbindungsfehler. Bitte prüfen Sie den Server.");
-                }
-            }
-        }
-
-        function wocheBlaettern(n) { 
-            aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7)); 
-            ladeUebersicht(); 
+                body.appendChild(row);
+            });
         }
 
         window.onload = ladeUebersicht;
