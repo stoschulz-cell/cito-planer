@@ -71,8 +71,10 @@
                 tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('') + '</tr>';
 
             let bodyHtml = (d.mitarbeiterListe || []).map(m => {
-                const isOwner = (m.name === meinName);
+                // Robuster Vergleich: ignoriert Leerzeichen und Großschreibung
+                const isOwner = (m.name.trim().toLowerCase() === meinName.trim().toLowerCase());
                 let row = `<tr><td class="p-3 border font-bold">${m.name}</td>`;
+                
                 tage.forEach(t => {
                     const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
                     if (!termin) {
@@ -93,7 +95,6 @@
         }
 
         async function terminBearbeiten(id, altesDatum, alteVon, alteBis) {
-            // Berechne Wochengrenzen für Prüfung
             let wochenStart = new Date(aktuellerMontag);
             let wochenEnde = new Date(aktuellerMontag);
             wochenEnde.setDate(wochenEnde.getDate() + 6);
@@ -110,7 +111,7 @@
             const neueVon = prompt("Neue Uhrzeit (von):", alteVon);
             const neueBis = prompt("Neue Uhrzeit (bis):", alteBis);
 
-            if (neueVon && neueBis) {
+            if (neueVon !== null && neueBis !== null) {
                 const response = await fetch('/api/mitarbeiter/verschieben-als-aenderung', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
