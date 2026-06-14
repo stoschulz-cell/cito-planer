@@ -4,63 +4,54 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.static('.'));
 
-const uri = process.env.MONGO_URI;
+const uri = process.env.MONGO_URI; // Deine MongoDB Verbindungs-URL
 const client = new MongoClient(uri);
 let db;
 
 async function startServer() {
-    try {
-        await client.connect();
-        db = client.db("CitoCareDB");
-        app.listen(port, '0.0.0.0');
-        console.log("Server läuft auf Port " + port);
-    } catch (err) { 
-        console.error("Verbindungsfehler:", err); 
-    }
+    await client.connect();
+    db = client.db("CitoCareDB"); // Dein Datenbank-Name
+    console.log("Verbunden mit MongoDB!");
+    app.listen(port, () => console.log('Server läuft auf Port ' + port));
 }
 startServer();
 
-// --- LOGIN ROUTE ---
-app.post('/api/login', async (req, res) => {
-    const { name } = req.body;
-    const data = await db.collection('daten').findOne({ id: "main" });
-    if (!data) return res.status(500).json({ error: "Datenbank leer" });
-    
-    const isPlaner = data.planerListe?.includes(name);
-    const isMitarbeiter = data.mitarbeiter?.includes(name);
-    
-    if (isPlaner) res.json({ role: 'planer' });
-    else if (isMitarbeiter) res.json({ role: 'mitarbeiter' });
-    else res.status(401).json({ error: "Name nicht gefunden" });
-});
+// Hilfsfunktion: Daten abrufen
+async function getDB() {
+    return await db.collection('daten').findOne({ id: "main" });
+}
 
-// --- DASHBOARD DATEN ---
+// Hilfsfunktion: Daten speichern
+async function saveDB(data) {
+    await db.collection('daten').updateOne({ id: "main" }, { $set: data }, { upsert: true });
+}
+
+// --- API ROUTEN ---
 app.get('/api/planer/dashboard', async (req, res) => {
-    try {
-        const data = await db.collection('daten').findOne({ id: "main" });
-        res.json(data || { 
-            mitarbeiter: [], 
-            termine: [], 
-            wunschfrei: [], 
-            wunschtermineKlienten: [] 
-        });
-    } catch (err) {
-        res.status(500).json({ error: "Fehler beim Laden" });
-    }
+    const data = await getDB();
+    res.json(data || { mitarbeiterListe: [], termine: [], wunschfreiListe: [], wunschtermineKlienten: [] });
 });
 
-// --- NEUER TERMIN EINTRAGEN ---
-app.post('/api/planer/termin-eintragen', async (req, res) => {
-    try {
-        const { mitarbeiter, kunde, datum } = req.body;
-        await db.collection('daten').updateOne(
-            { id: "main" },
-            { $push: { termine: { mitarbeiter, kunde, datum } } }
-        );
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: "Fehler beim Eintragen" });
-    }
+app.post('/api/auth/login', async (req, res) => {
+    const { name, passwort } = req.body;
+    const data = await getDB();
+    const user = data.mitarbeiterListe.find(m => m.name.toLowerCase() === name.toLowerCase());
+    if (user && user.passwort === passwort) res.json({ success: true, name: user.name });
+    else res.status(401).json({ error: "Falsch" });
+});
+
+app.post('/api/planer/termin', async (req, res) => {
+    const data = await getDB();
+    data.termine.push({ ...req.body, id: Date.now(), status: "ENTWURF" });
+    await saveDB(data);
+    res.json({ success: true });
+});
+
+app.post('/api/mitarbeiter/wunschfrei', async (req, res) => {
+    const data = await getDB();
+    data.wunschfreiListe.push({ ...req.body, id: Date.now(), status: 'OFFEN' });
+    await saveDB(data);
+    res.json({ success: true });
 });
