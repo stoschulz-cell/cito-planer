@@ -10,8 +10,8 @@
         <div class="bg-blue-700 p-4 rounded-t-xl text-white flex justify-between items-center shadow-lg">
             <h1 class="text-xl font-bold">Cito Care Zentrale</h1>
             <div class="flex gap-2">
-                <button id="btn-freigabe" onclick="toggleFreigabe()" class="px-3 py-1 rounded text-sm font-semibold transition"></button>
-                <button onclick="window.location.href='index.html'" class="bg-red-500 px-3 py-1 rounded text-sm font-semibold hover:bg-red-600">Abmelden</button>
+                <button id="btn-freigabe" onclick="toggleFreigabe()" class="px-3 py-1 rounded text-sm font-semibold"></button>
+                <button onclick="window.location.href='index.html'" class="bg-red-500 px-3 py-1 rounded text-sm font-semibold">Abmelden</button>
             </div>
         </div>
         
@@ -19,10 +19,21 @@
             <div class="md:col-span-1 border-r pr-4">
                 <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2">Mitarbeiter</h2>
                 <div id="mitarbeiter-liste-sidebar" class="space-y-2 mb-6"></div>
-                
                 <div class="bg-gray-50 p-3 rounded border">
                     <input id="new-ma" placeholder="Neuer Name" class="border p-2 w-full text-sm rounded mb-2">
-                    <button onclick="mitarbeiterAnlegen()" class="bg-blue-600 text-white w-full py-2 rounded text-sm font-bold hover:bg-blue-700">Mitarbeiter Anlegen</button>
+                    <button onclick="mitarbeiterAnlegen()" class="bg-blue-600 text-white w-full py-2 rounded text-sm font-bold">Anlegen</button>
+                </div>
+
+                <h2 class="text-lg font-bold mt-8 mb-4 text-green-800 border-b pb-2">Neuer Termin</h2>
+                <div class="bg-gray-50 p-3 rounded border text-sm">
+                    <select id="termin-ma" class="w-full border p-2 mb-2 rounded"></select>
+                    <input id="termin-kunde" placeholder="Kunde" class="w-full border p-2 mb-2 rounded">
+                    <input id="termin-datum" type="date" class="w-full border p-2 mb-2 rounded">
+                    <div class="flex gap-2 mb-2">
+                        <input id="termin-von" type="time" class="w-full border p-2 rounded">
+                        <input id="termin-bis" type="time" class="w-full border p-2 rounded">
+                    </div>
+                    <button onclick="terminAnlegen()" class="bg-green-600 text-white w-full py-2 rounded font-bold">Speichern</button>
                 </div>
             </div>
 
@@ -61,6 +72,16 @@
             document.getElementById('btn-freigabe').innerText = (d.freigaben?.[kwId]) ? "Plan ist FREIGEGEBEN" : "Plan ist ENTWURF";
             document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
 
+            // Mitarbeiter Liste
+            document.getElementById('mitarbeiter-liste-sidebar').innerHTML = (d.mitarbeiterListe || []).map(m => `
+                <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
+                    <span>${m.name}</span>
+                    <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold">✕</button>
+                </div>`).join('');
+            
+            document.getElementById('termin-ma').innerHTML = (d.mitarbeiterListe || []).map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+
+            // Tabelle aufbauen
             let tage = [];
             for(let i=0; i<7; i++) {
                 let tag = new Date(aktuellerMontag);
@@ -69,7 +90,7 @@
             }
 
             document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
-                tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}</th>`).join('');
+                tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('');
 
             document.getElementById('matrix-body').innerHTML = (d.mitarbeiterListe || []).map(m => {
                 const termineMA = (d.termine || []).filter(x => x.mitarbeiter === m.name && tage.includes(x.datum));
@@ -79,39 +100,23 @@
                         ${tage.map(t => {
                             const termin = termineMA.find(x => x.datum === t);
                             if (!termin) return '<td class="p-2 border"></td>';
-                            
-                            const isChanged = termin.hatAenderung;
-                            const v = isChanged ? termin.aktuell : termin.original;
-                            
-                            return `<td class="p-2 border text-[11px] h-20 align-top ${isChanged ? 'bg-orange-100' : 'bg-white'}">
+                            const v = termin.hatAenderung ? termin.aktuell : termin.original;
+                            return `<td class="p-2 border text-[11px] h-20 ${termin.hatAenderung ? 'bg-orange-100' : ''}">
                                 <b>${termin.kunde}</b><br>${v.von}-${v.bis}
-                                ${isChanged ? `<button onclick="bestaetigen(${termin.id})" class="text-green-700 font-bold block mt-1 underline">✓ Bestätigen</button>` : ''}
-                                <button onclick="terminLoeschen(${termin.id})" class="text-red-500 font-bold block mt-1">✕</button>
+                                ${termin.hatAenderung ? `<button onclick="bestaetigen(${termin.id})" class="text-green-700 font-bold block underline">✓ Bestätigen</button>` : ''}
+                                <button onclick="terminLoeschen(${termin.id})" class="text-red-500 font-bold block mt-1">✕ Löschen</button>
                             </td>`;
                         }).join('')}
-                    </tr>
-                `;
+                    </tr>`;
             }).join('');
         }
 
-        async function bestaetigen(id) {
-            await fetch('/api/planer/termin/bestaetigen', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ id })
-            });
-            ladeDashboard();
-        }
-
-        async function toggleFreigabe() {
-            const kwId = getKwId(aktuellerMontag);
-            const status = !document.getElementById('btn-freigabe').innerText.includes("FREI");
-            await fetch('/api/planer/freigabe', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ kwId, status }) });
-            ladeDashboard();
-        }
-
-        async function terminLoeschen(id) { if(confirm("Termin löschen?")) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); } }
+        async function bestaetigen(id) { await fetch('/api/planer/termin/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
+        async function terminAnlegen() { const t = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
         async function mitarbeiterAnlegen() { const name = document.getElementById('new-ma').value; await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); ladeDashboard(); }
+        async function mitarbeiterLoeschen(name) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); }
+        async function terminLoeschen(id) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); }
+        async function toggleFreigabe() { const kwId = getKwId(aktuellerMontag); await fetch('/api/planer/freigabe', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ kwId, status: !document.getElementById('btn-freigabe').innerText.includes("FREI") }) }); ladeDashboard(); }
         function wocheBlaettern(n) { aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7)); ladeDashboard(); }
         
         window.onload = ladeDashboard;
