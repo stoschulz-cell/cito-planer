@@ -1,145 +1,57 @@
 const express = require('express');
-const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
+const { MongoClient } = require('mongodb');
 const app = express();
+const port = process.env.PORT || 3000;
 
-app.use(cors());
+// Middleware, um JSON-Daten zu verarbeiten
 app.use(express.json());
-app.use(express.static('.'));
+app.use(express.static('public'));
 
-const DB_FILE = path.join(__dirname, 'datenbank.json');
+// Dein Connection-String mit deinen Datenbank-Daten
+const uri = "mongodb+srv://stoschulz_db_user:ts4g13U0kA1LTB1U@cluster0.7ravkzz.mongodb.net/?appName=Cluster0";
+const client = new MongoClient(uri);
 
-function datenLaden() {
-  try {
-    if (fs.existsSync(DB_FILE)) {
-      const dateiInhalt = fs.readFileSync(DB_FILE, 'utf8');
-      const daten = JSON.parse(dateiInhalt);
-      // Absicherung, dass alle Listen existieren
-      if (!daten.mitarbeiterListe) daten.mitarbeiterListe = [];
-      if (!daten.termine) daten.termine = [];
-      if (!daten.wunschfreiListe) daten.wunschfreiListe = [];
-      if (!daten.wunschtermineKlienten) daten.wunschtermineKlienten = [];
-      if (!daten.naechsteTerminId) daten.naechsteTerminId = daten.termine.length + 1;
-      if (!daten.naechsteWunschfreiId) daten.naechsteWunschfreiId = daten.wunschfreiListe.length + 1;
-      if (!daten.naechsteKlientenWunschId) daten.naechsteKlientenWunschId = daten.wunschtermineKlienten.length + 1;
-      return daten;
+let db;
+
+// Datenbank-Verbindung starten
+async function startServer() {
+    try {
+        await client.connect();
+        db = client.db("CitoCareDB"); // Name der Datenbank
+        console.log("Erfolgreich mit MongoDB verbunden!");
+        
+        app.listen(port, () => {
+            console.log(`Server läuft auf Port ${port}`);
+        });
+    } catch (err) {
+        console.error("Verbindungsfehler:", err);
     }
-  } catch (fehler) {
-    console.error("Fehler beim Laden der Datenbank:", fehler);
-  }
-
-  return {
-    mitarbeiterListe: [
-      { name: "Steffi", passwort: "cito2026" }, { name: "Kofhal", passwort: "cito2026" },
-      { name: "Wiegefe", passwort: "cito2026" }, { name: "Stephan", passwort: "cito2026" }
-    ],
-    termine: [],
-    wunschfreiListe: [],
-    wunschtermineKlienten: [],
-    naechsteTerminId: 1,
-    naechsteWunschfreiId: 1,
-    naechsteKlientenWunschId: 1
-  };
 }
 
-function datenSpeichern(daten) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(daten, null, 2), 'utf8');
-}
+startServer();
 
-let db = datenLaden();
-
-app.get('/api/planer/dashboard', (req, res) => {
-  res.json({ 
-    mitarbeiter: db.mitarbeiterListe.map(m => m.name), 
-    termine: db.termine, 
-    wunschfrei: db.wunschfreiListe,
-    wunschtermineKlienten: db.wunschtermineKlienten
-  });
-});
-
-// Klienten-Wunschtermin im Pool anlegen
-app.post('/api/planer/klienten-wunsch', (req, res) => {
-  const { kunde, datum, von_uhrzeit, bis_uhrzeit, notiz } = req.body;
-  db.wunschtermineKlienten.push({
-    id: db.naechsteKlientenWunschId++,
-    kunde, datum, von_uhrzeit, bis_uhrzeit, notiz
-  });
-  datenSpeichern(db);
-  res.json({ success: true });
+// ROUTE: Daten speichern (wird aufgerufen, wenn du Mitarbeiter verschiebst)
+app.post('/api/save-plan', async (req, res) => {
+    try {
+        const neueDaten = req.body;
+        // Speichert die Daten unter einer festen ID 'dienstplan_main'
+        await db.collection('planung').updateOne(
+            { id: "dienstplan_main" }, 
+            { $set: { daten: neueDaten } }, 
+            { upsert: true }
+        );
+        res.json({ message: "Daten erfolgreich gespeichert!" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-// Klienten-Wunschtermin aus Pool LÖSCHEN
-app.delete('/api/planer/klienten-wunsch/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  db.wunschtermineKlienten = db.wunschtermineKlienten.filter(w => w.id !== id);
-  datenSpeichern(db);
-  res.json({ success: true });
+// ROUTE: Daten laden (wird aufgerufen, wenn die Seite neu lädt)
+app.get('/api/load-plan', async (req, res) => {
+    try {
+        const result = await db.collection('planung').findOne({ id: "dienstplan_main" });
+        res.json(result ? result.daten : {});
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
-
-// Wunschtermin in echten Termin umwandeln und ZUWEISEN
-app.post('/api/planer/klienten-wunsch-zuweisen/:id', (req, res) => {
-  const wunschId = parseInt(req.params.id);
-  const { mitarbeiter } = req.body;
-  
-  const wunsch = db.wunschtermineKlienten.find(w => w.id === wunschId);
-  if(!wunsch) return res.status(404).json({ error: "Wunsch nicht gefunden" });
-  
-  // Neuen echten Termin erzeugen
-  const neuerTermin = {
-    id: db.naechsteTerminId++,
-    mitarbeiter: mitarbeiter,
-    kunde: wunsch.kunde + (wunsch.notiz ? ` (${wunsch.notiz})` : ''),
-    datum: wunsch.datum,
-    von_uhrzeit: wunsch.von_uhrzeit,
-    bis_uhrzeit: wunsch.bis_uhrzeit,
-    status: "ENTWURF"
-  };
-  
-  db.termine.push(neuerTermin);
-  
-  // Aus dem Pool entfernen
-  db.wunschtermineKlienten = db.wunschtermineKlienten.filter(w => w.id !== wunschId);
-  
-  datenSpeichern(db);
-  res.json({ success: true });
-});
-
-// --- RESTLICHE SYSTEM-ROUTEN ---
-app.post('/api/auth/login', (req, res) => {
-  const { name, passwort } = req.body;
-  const user = db.mitarbeiterListe.find(m => m.name.toLowerCase() === name.trim().toLowerCase());
-  if (!user || user.passwort !== passwort) return res.status(401).json({ error: "Falsch" });
-  res.json({ success: true, name: user.name });
-});
-app.put('/api/mitarbeiter/termin-verschieben/:id', (req, res) => {
-  const { neueVonUhrzeit, neueBisUhrzeit, neuesDatum } = req.body;
-  const originalTermin = db.termine.find(t => t.id === parseInt(req.params.id));
-  if (!originalTermin) return res.status(404).end();
-  const abweichung = { id: db.naechsteTerminId++, mitarbeiter: originalTermin.mitarbeiter, kunde: originalTermin.kunde, datum: neuesDatum || originalTermin.datum, von_uhrzeit: neueVonUhrzeit || originalTermin.von_uhrzeit, bis_uhrzeit: neueBisUhrzeit || originalTermin.bis_uhrzeit, status: 'IST-ZEIT', original_id: originalTermin.id };
-  originalTermin.status = 'ORIGINAL_GEÄNDERT'; db.termine.push(abweichung); datenSpeichern(db); res.json({ success: true });
-});
-app.post('/api/mitarbeiter/wunschfrei', (req, res) => {
-  const { mitarbeiter, datum, von_uhrzeit, bis_uhrzeit, grund } = req.body;
-  db.wunschfreiListe.push({ id: db.naechsteWunschfreiId++, mitarbeiter, datum, von_uhrzeit, bis_uhrzeit, grund, status: 'OFFEN' }); datenSpeichern(db); res.json({ message: "OK" });
-});
-app.post('/api/planer/wunschfrei/:id/:aktion', (req, res) => {
-  const antrag = db.wunschfreiListe.find(w => w.id === parseInt(req.params.id));
-  if (antrag) antrag.status = req.params.aktion === 'genehmigen' ? 'GENEHMIGT' : 'ABGELEHNT';
-  datenSpeichern(db); res.json({ success: true });
-});
-app.post('/api/planer/termin', (req, res) => {
-  const { mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit } = req.body;
-  db.termine.push({ id: db.naechsteTerminId++, mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit, status: "ENTWURF" }); datenSpeichern(db); res.json({ success: true });
-});
-app.delete('/api/planer/termin/:id', (req, res) => {
-  db.termine = db.termine.filter(t => t.id !== parseInt(req.params.id)); datenSpeichern(db); res.json({ success: true });
-});
-app.post('/api/planer/freigeben', (req, res) => {
-  db.termine.forEach(t => { if (t.status === 'ENTWURF') t.status = 'FREIGEGEBEN'; }); datenSpeichern(db); res.json({ success: true });
-});
-app.post('/api/planer/mitarbeiter', (req, res) => {
-  db.mitarbeiterListe.push({ name: req.body.name.trim(), passwort: "cito2026" }); datenSpeichern(db); res.json({ success: true });
-});
-
-app.listen(3000, () => console.log('Cito Care Server läuft fehlerfrei auf Port 3000'));
