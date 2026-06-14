@@ -10,7 +10,7 @@
         <div class="bg-blue-700 p-4 rounded-t-xl text-white flex justify-between items-center shadow-lg">
             <h1 class="text-xl font-bold">Cito Care Zentrale</h1>
             <div class="flex gap-2">
-                <button id="btn-freigabe" onclick="toggleFreigabe()" class="px-3 py-1 rounded text-sm font-semibold"></button>
+                <button id="btn-freigabe" onclick="toggleFreigabe()" class="px-3 py-1 rounded text-sm font-semibold border"></button>
                 <button onclick="window.location.href='index.html'" class="bg-red-500 px-3 py-1 rounded text-sm font-semibold">Abmelden</button>
             </div>
         </div>
@@ -20,7 +20,7 @@
                 <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2">Mitarbeiter</h2>
                 <div id="mitarbeiter-liste-sidebar" class="space-y-2 mb-6"></div>
                 
-                <h2 class="text-lg font-bold mt-8 mb-4 text-yellow-800 border-b pb-2">Eingegangene Wünsche</h2>
+                <h2 class="text-lg font-bold mt-8 mb-4 text-yellow-800 border-b pb-2">Wünsche</h2>
                 <div id="wunsch-liste-sidebar" class="space-y-2 mb-6 text-sm"></div>
 
                 <h2 class="text-lg font-bold mt-8 mb-4 text-green-800 border-b pb-2">Neuer Termin</h2>
@@ -39,7 +39,7 @@
             <div class="md:col-span-3">
                 <div class="flex justify-between items-center mb-6">
                     <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">« Vorherige</button>
-                    <h2 id="kw-titel" class="font-bold text-xl text-blue-900"></h2>
+                    <h2 id="kw-titel" class="font-bold text-xl text-blue-900">KW ...</h2>
                     <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">Nächste »</button>
                 </div>
                 <div class="overflow-x-auto">
@@ -54,12 +54,17 @@
 
     <script>
         let aktuellerMontag = new Date();
-        aktuellerMontag.setDate(aktuellerMontag.getDate() - (aktuellerMontag.getDay() + 6) % 7);
+        // Setze auf den aktuellen Montag (UTC)
+        let day = aktuellerMontag.getUTCDay();
+        let diff = aktuellerMontag.getUTCDate() - day + (day === 0 ? -6 : 1);
+        aktuellerMontag.setUTCDate(diff);
+        aktuellerMontag.setUTCHours(0,0,0,0);
 
         function getKwId(date) {
-            let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            let d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
             d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-            let kw = Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1)/7);
+            let yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            let kw = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
             return `${d.getUTCFullYear()}-${kw}`;
         }
 
@@ -71,71 +76,68 @@
                 const wuensche = await wRes.json();
                 
                 const kwId = getKwId(aktuellerMontag);
-                document.getElementById('btn-freigabe').innerText = (d.freigaben?.[kwId]) ? "Plan ist FREIGEGEBEN" : "Plan ist ENTWURF";
+                const isFreigegeben = d.freigaben?.[kwId];
+                const btn = document.getElementById('btn-freigabe');
+                btn.innerText = isFreigegeben ? "Plan ist FREIGEGEBEN" : "Plan ist ENTWURF";
+                btn.className = `px-3 py-1 rounded text-sm font-semibold border ${isFreigegeben ? 'bg-green-600' : 'bg-orange-500'}`;
                 document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
 
                 document.getElementById('mitarbeiter-liste-sidebar').innerHTML = (d.mitarbeiterListe || []).map(m => `
                     <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
                         <span>${m.name}</span>
-                        <div class="flex gap-1">
-                            <button onclick="sortiereMitarbeiter('${m.name}', 'up')" class="bg-gray-200 px-1 rounded">▲</button>
-                            <button onclick="sortiereMitarbeiter('${m.name}', 'down')" class="bg-gray-200 px-1 rounded">▼</button>
-                            <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold px-2">✕</button>
-                        </div>
+                        <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold px-2">✕</button>
                     </div>`).join('');
                 
-                // Wunsch Liste mit korrekter Zeit-Anzeige
                 document.getElementById('wunsch-liste-sidebar').innerHTML = (wuensche || []).map(w => `
                     <div class="p-2 bg-yellow-50 rounded border border-yellow-200">
                         <p class="font-bold text-xs">${w.mitarbeiter}</p>
-                        <p class="text-[10px]">${w.datum} | ${w.zeit || "---"} Uhr</p>
-                        <p class="text-[10px] italic">${w.grund || ""}</p>
-                        <button onclick="wunschBestaetigen(${w.id})" class="bg-green-600 text-white w-full mt-2 py-1 rounded text-[10px]">Als Termin übernehmen</button>
+                        <p class="text-[10px]">${w.datum} | ${w.zeit || ""} Uhr</p>
+                        <button onclick="wunschBestaetigen(${w.id})" class="bg-green-600 text-white w-full mt-1 py-1 rounded text-[10px]">Übernehmen</button>
                     </div>`).join('');
 
                 document.getElementById('termin-ma').innerHTML = (d.mitarbeiterListe || []).map(m => `<option value="${m.name}">${m.name}</option>`).join('');
 
                 let tage = [];
                 for(let i=0; i<7; i++) {
-                    let tag = new Date(aktuellerMontag);
-                    tag.setDate(tag.getDate() + i);
-                    tage.push(tag.toISOString().split('T')[0]);
+                    let t = new Date(aktuellerMontag);
+                    t.setUTCDate(t.getUTCDate() + i);
+                    tage.push(t.toISOString().split('T')[0]);
                 }
 
                 document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
-                    tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('');
+                    tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}</th>`).join('');
 
                 document.getElementById('matrix-body').innerHTML = (d.mitarbeiterListe || []).map(m => `
-                    <tr class="hover:bg-gray-50">
+                    <tr>
                         <td class="p-3 border font-semibold text-sm">${m.name}</td>
                         ${tage.map(t => {
                             const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
                             if (!termin) return '<td class="p-2 border"></td>';
                             let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
-                            return `<td class="p-2 border text-[11px] h-20 ${termin.hatAenderung ? 'bg-orange-100' : ''}">
-                                <b>${termin.kunde}</b><br>${v.von}-${v.bis}
-                                ${termin.hatAenderung ? `<button onclick="bestaetigen(${termin.id})" class="text-green-700 font-bold block underline">✓ Bestätigen</button>` : ''}
-                                <button onclick="terminLoeschen(${termin.id})" class="text-red-500 font-bold block mt-1">✕ Löschen</button>
-                            </td>`;
+                            return `<td class="p-2 border text-[10px] h-20 ${termin.hatAenderung ? 'bg-orange-100' : ''}">
+                                        <b>${termin.kunde}</b><br>${v.von}-${v.bis}
+                                        ${termin.hatAenderung ? `<button onclick="bestaetigen(${termin.id})" class="text-green-700 block underline font-bold">✓ Bestätigen</button>` : ''}
+                                        <button onclick="terminLoeschen(${termin.id})" class="text-red-500 block mt-1">✕ Löschen</button>
+                                    </td>`;
                         }).join('')}
                     </tr>`).join('');
             } catch (e) { console.error("Ladefehler:", e); }
         }
 
-        // WICHTIG: Die ID hier direkt als Number übergeben, nicht als String in Anführungszeichen
-        async function wunschBestaetigen(id) { 
-            await fetch('/api/planer/wunsch/bestaetigen', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({ id: Number(id) }) 
-            }); 
+        function wocheBlaettern(n) { 
+            aktuellerMontag.setUTCDate(aktuellerMontag.getUTCDate() + (n * 7)); 
             ladeDashboard(); 
         }
 
-        async function sortiereMitarbeiter(name, richtung) { await fetch('/api/planer/mitarbeiter/sortieren', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, richtung }) }); ladeDashboard(); }
+        // API Handler
+        async function wunschBestaetigen(id) { await fetch('/api/planer/wunsch/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
         async function bestaetigen(id) { await fetch('/api/planer/termin/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
         async function terminAnlegen() { const t = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
         async function mitarbeiterLoeschen(name) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); }
         async function terminLoeschen(id) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); }
         async function toggleFreigabe() { const kwId = getKwId(aktuellerMontag); await fetch('/api/planer/freigabe', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ kwId, status: !document.getElementById('btn-freigabe').innerText.includes("FREI") }) }); ladeDashboard(); }
-        function wocheBlaettern(n) { aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7)); l
+        
+        window.onload = ladeDashboard;
+    </script>
+</body>
+</html>
