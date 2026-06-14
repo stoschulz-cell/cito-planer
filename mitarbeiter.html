@@ -30,19 +30,12 @@
             </div>
         </div>
 
-        <div id="plan-container"><p class="p-10 text-center">Lade Plan...</p></div>
+        <div id="plan-container" class="overflow-x-auto"><p class="p-10 text-center">Lade Plan...</p></div>
     </div>
 
     <script>
         let meinName = (localStorage.getItem('mitarbeiterName') || "").trim().toLowerCase();
-        document.getElementById('status-display').innerText = "Angemeldet als: " + (meinName || "Unbekannt");
-
-        function getLocalDateString(date) {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
-        }
+        document.getElementById('status-display').innerText = "Angemeldet als: " + (localStorage.getItem('mitarbeiterName') || "Unbekannt");
 
         function getMontag(date) {
             let d = new Date(date);
@@ -60,7 +53,6 @@
             ladeUebersicht(); 
         }
 
-        // Funktion zum Absenden des Wunsch-Termins
         async function wunschSenden() {
             const datum = document.getElementById('wunsch-datum').value;
             const zeit = document.getElementById('wunsch-zeit').value;
@@ -72,11 +64,11 @@
                 const response = await fetch('/api/mitarbeiter/wunsch-einreichen', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ mitarbeiter: meinName, datum, zeit, grund, status: 'pending' })
+                    body: JSON.stringify({ mitarbeiter: localStorage.getItem('mitarbeiterName'), datum, zeit, grund, status: 'pending' })
                 });
                 
                 if (response.ok) {
-                    alert("Wunsch wurde an den Planer gesendet!");
+                    alert("Wunsch erfolgreich an den Planer gesendet!");
                     document.getElementById('wunsch-datum').value = '';
                     document.getElementById('wunsch-grund').value = '';
                     document.getElementById('wunsch-zeit').value = '';
@@ -95,8 +87,8 @@
                 const d = await res.json();
                 
                 let d2 = new Date(aktuellerMontag);
-                d2.setDate(d2.getDate() + 4 - (d2.getDay() || 7));
-                let jahrStart = new Date(d2.getFullYear(), 0, 1);
+                d2.setUTCDate(d2.getUTCDate() + 4 - (d2.getUTCDay()||7));
+                let jahrStart = new Date(Date.UTC(d2.getUTCFullYear(), 0, 1));
                 let kw = Math.ceil((((d2 - jahrStart) / 86400000) + 1) / 7);
                 document.getElementById('kw-titel').innerText = `KW ${kw}`;
 
@@ -104,17 +96,15 @@
                 for(let i=0; i<7; i++) {
                     let t = new Date(aktuellerMontag);
                     t.setDate(t.getDate() + i);
-                    tage.push(getLocalDateString(t));
+                    tage.push(t.toISOString().split('T')[0]);
                 }
 
-                let html = '<table class="w-full border-collapse border"><thead><tr><th class="p-3 border">Mitarbeiter</th>';
+                let html = '<table class="w-full border-collapse border shadow-sm"><thead class="bg-blue-50 text-xs uppercase text-blue-900"><tr><th class="p-3 border">Mitarbeiter</th>';
                 ['Mo','Di','Mi','Do','Fr','Sa','So'].forEach((t,i) => html += `<th class="p-3 border">${t}<br>${tage[i].split('-')[2]}.${tage[i].split('-')[1]}</th>`);
-                html += '</tr></thead><tbody>';
+                html += '</tr></thead><tbody class="bg-white">';
 
                 (d.mitarbeiterListe || []).forEach(m => {
-                    const dbName = (m.name || "").trim().toLowerCase();
-                    const isOwner = (dbName === meinName);
-                    
+                    const isOwner = (m.name.toLowerCase() === localStorage.getItem('mitarbeiterName').toLowerCase());
                     html += `<tr><td class="p-3 border font-bold ${isOwner ? 'bg-blue-100' : ''}">${m.name}</td>`;
                     tage.forEach(t => {
                         const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
@@ -124,7 +114,7 @@
                             let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
                             html += `<td class="border p-2 text-[10px] ${termin.hatAenderung ? 'bg-orange-100' : ''}">
                                         <b>${termin.kunde}</b><br>${v.von}-${v.bis} 
-                                        ${isOwner ? `<button onclick="terminBearbeiten('${termin.id}', '${termin.datum}', '${v.von}', '${v.bis}')" class="block w-full bg-blue-600 text-white mt-1 rounded">Ändern</button>` : ''}
+                                        ${isOwner ? `<button onclick="terminBearbeiten('${termin.id}', '${termin.datum}', '${v.von}', '${v.bis}')" class="block w-full bg-blue-600 text-white mt-1 rounded py-0.5">Ändern</button>` : ''}
                                     </td>`;
                         }
                     });
@@ -138,24 +128,16 @@
             const neuesDatum = prompt("Neues Datum (YYYY-MM-DD):", datum);
             if (!neuesDatum) return;
 
-            const gewaehltesDatum = new Date(neuesDatum);
-            let wochenEnde = new Date(aktuellerMontag);
-            wochenEnde.setDate(wochenEnde.getDate() + 6);
-
-            if (gewaehltesDatum < aktuellerMontag || gewaehltesDatum > wochenEnde) {
-                alert("Fehler: Du kannst Termine nur innerhalb der aktuellen Woche verschieben!");
-                return;
-            }
-
             const neueVon = prompt("Neue Uhrzeit (von):", von);
             const neueBis = prompt("Neue Uhrzeit (bis):", bis);
+            
             if (neueVon && neueBis) {
                 await fetch('/api/mitarbeiter/verschieben-als-aenderung', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ id: Number(id), neuesDatum, neueVon, neueBis })
                 });
-                alert("Änderung gesendet!");
+                alert("Änderung zur Bestätigung an den Planer gesendet!");
                 ladeUebersicht();
             }
         }
