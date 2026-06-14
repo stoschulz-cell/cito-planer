@@ -18,6 +18,7 @@
         <div class="bg-white p-6 rounded-b-xl shadow-lg grid grid-cols-1 md:grid-cols-4 gap-8">
             <div class="md:col-span-1 border-r pr-4">
                 <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2">Mitarbeiter</h2>
+                <button onclick="mitarbeiterHinzufuegen()" class="bg-blue-600 text-white w-full py-1 rounded text-sm mb-2 hover:bg-blue-700 font-bold">+ Mitarbeiter hinzufügen</button>
                 <div id="mitarbeiter-liste-sidebar" class="space-y-2 mb-6"></div>
                 
                 <h2 class="text-lg font-bold mt-8 mb-4 text-yellow-800 border-b pb-2">Wünsche</h2>
@@ -83,7 +84,11 @@
                 document.getElementById('mitarbeiter-liste-sidebar').innerHTML = (d.mitarbeiterListe || []).map(m => `
                     <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
                         <span>${m.name}</span>
-                        <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold px-2">✕</button>
+                        <div class="flex gap-1">
+                            <button onclick="mitarbeiterSortieren('${m.name}', 'up')" class="text-gray-500 px-1">▲</button>
+                            <button onclick="mitarbeiterSortieren('${m.name}', 'down')" class="text-gray-500 px-1">▼</button>
+                            <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold px-2">✕</button>
+                        </div>
                     </div>`).join('');
                 
                 document.getElementById('wunsch-liste-sidebar').innerHTML = (wuensche || []).map(w => `
@@ -126,28 +131,16 @@
             } catch (e) { console.error("Ladefehler:", e); }
         }
 
-        function wocheBlaettern(n) { 
-            aktuellerMontag.setUTCDate(aktuellerMontag.getUTCDate() + (n * 7)); 
-            ladeDashboard(); 
-        }
-
+        function wocheBlaettern(n) { aktuellerMontag.setUTCDate(aktuellerMontag.getUTCDate() + (n * 7)); ladeDashboard(); }
         async function wunschBestaetigen(id) { await fetch('/api/planer/wunsch/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
         async function bestaetigen(id) { await fetch('/api/planer/termin/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
-        async function terminAnlegen() { 
-            const t = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; 
-            await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); 
-            ladeDashboard(); 
-        }
+        async function terminAnlegen() { const t = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
         async function mitarbeiterLoeschen(name) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); }
+        async function mitarbeiterHinzufuegen() { const name = prompt("Name:"); if(name) { await fetch('/api/planer/mitarbeiter/hinzufuegen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); ladeDashboard(); } }
+        async function mitarbeiterSortieren(name, richtung) { await fetch('/api/planer/mitarbeiter/sortieren', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, richtung }) }); ladeDashboard(); }
         async function terminLoeschen(id) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); }
-        async function toggleFreigabe() { 
-            const kwId = getKwId(aktuellerMontag); 
-            const status = !document.getElementById('btn-freigabe').innerText.includes("FREI");
-            await fetch('/api/planer/freigabe', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ kwId, status }) }); 
-            ladeDashboard(); 
-        }
+        async function toggleFreigabe() { const kwId = getKwId(aktuellerMontag); const status = !document.getElementById('btn-freigabe').innerText.includes("FREI"); await fetch('/api/planer/freigabe', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ kwId, status }) }); ladeDashboard(); }
         
-        // Initialer Aufruf
         ladeDashboard();
     </script>
 </body>
