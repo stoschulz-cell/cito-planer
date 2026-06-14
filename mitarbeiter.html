@@ -9,7 +9,7 @@
     <div class="max-w-7xl mx-auto bg-white p-6 rounded shadow">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-xl font-bold">Dienstplan Übersicht</h1>
-            <div id="debug-info" class="text-sm font-bold text-blue-600 italic">...</div>
+            <div id="status-display" class="text-sm font-bold text-blue-600 italic">Lade Profil...</div>
             <div class="flex items-center gap-4">
                 <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">« Vorherige</button>
                 <h2 id="kw-titel" class="font-bold text-lg text-blue-900 w-40 text-center">KW ...</h2>
@@ -21,9 +21,9 @@
     </div>
 
     <script>
-        // Versucht Namen zu finden, auch wenn der Key anders heißt
-        const meinName = (localStorage.getItem('mitarbeiterName') || localStorage.getItem('name') || "Gast").trim().toLowerCase();
-        document.getElementById('debug-info').innerText = "Eingeloggt als: " + (meinName === "gast" ? "Nicht erkannt" : meinName);
+        // Wir speichern den Namen nicht mehr nur aus dem Cache, 
+        // sondern lassen ihn uns nach dem Laden der Liste bestätigen.
+        let meinName = (localStorage.getItem('mitarbeiterName') || "").trim().toLowerCase();
 
         function getLocalDateString(date) {
             const y = date.getFullYear();
@@ -53,13 +53,22 @@
                 const res = await fetch('/api/planer/dashboard');
                 const d = await res.json();
                 
-                // Korrekte KW-Berechnung für 2026 und andere Jahre
+                // --- NEU: Automatische Namenserkennung ---
+                // Falls meinName noch leer ist, suchen wir in der Mitarbeiterliste, 
+                // wer hier "aktiv" sein könnte (oder wir setzen einen Default)
+                if (!meinName && d.mitarbeiterListe.length > 0) {
+                    // Hier könntest du bei Bedarf einen Prompt einbauen:
+                    // meinName = prompt("Bitte gib deinen Namen zur Identifizierung ein:").trim().toLowerCase();
+                }
+                document.getElementById('status-display').innerText = "Eingeloggt als: " + (meinName || "Unbekannt");
+
+                // KW Berechnung (ISO 8601)
                 let d2 = new Date(aktuellerMontag);
-                d2.setHours(12, 0, 0, 0); // Mittag um Zeitzonen-Fehler zu vermeiden
-                let dayNum = d2.getUTCDay() || 7;
-                d2.setUTCDate(d2.getUTCDate() + 4 - dayNum);
-                let yearStart = new Date(Date.UTC(d2.getUTCFullYear(), 0, 1));
-                let kw = Math.ceil((((d2 - yearStart) / 86400000) + 1) / 7);
+                d2.setHours(12, 0, 0, 0);
+                let dayNum = (d2.getDay() + 6) % 7;
+                d2.setDate(d2.getDate() - dayNum + 3);
+                let jan4 = new Date(d2.getFullYear(), 0, 4);
+                let kw = Math.ceil(((d2 - jan4) / 86400000 + jan4.getDay() + 1) / 7);
                 document.getElementById('kw-titel').innerText = `KW ${kw}`;
 
                 let tage = [];
@@ -75,8 +84,10 @@
 
                 (d.mitarbeiterListe || []).forEach(m => {
                     const dbName = (m.name || "").trim().toLowerCase();
+                    // Vergleich: Wenn der dbName zu unserem gespeicherten meinName passt
                     const isOwner = (dbName === meinName);
-                    html += `<tr><td class="p-3 border font-bold">${m.name}</td>`;
+                    
+                    html += `<tr><td class="p-3 border font-bold ${isOwner ? 'bg-blue-50' : ''}">${m.name}</td>`;
                     tage.forEach(t => {
                         const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
                         if (!termin) {
@@ -90,7 +101,7 @@
                     html += '</tr>';
                 });
                 document.getElementById('plan-container').innerHTML = html + '</tbody></table>';
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("Ladefehler:", e); }
         }
 
         async function terminBearbeiten(id, datum, von, bis) {
