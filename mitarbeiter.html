@@ -23,6 +23,7 @@
     </div>
 
     <script>
+        const meinName = localStorage.getItem('mitarbeiterName') || "";
         let aktuellerMontag = new Date();
         aktuellerMontag.setDate(aktuellerMontag.getDate() - (aktuellerMontag.getDay() + 6) % 7);
         aktuellerMontag.setHours(0,0,0,0);
@@ -43,21 +44,15 @@
                 
                 document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
 
-                const istFreigegeben = d.freigaben?.[kwId] === true;
-
-                if (!istFreigegeben) {
-                    container.innerHTML = `
-                        <div class="p-10 text-center border-2 border-dashed rounded bg-yellow-50">
-                            <h2 class="text-xl font-bold text-yellow-800">Plan ist ENTWURF</h2>
-                            <p class="text-yellow-600 mt-2">Der Dienstplan für diese Woche wurde noch nicht freigegeben.</p>
-                        </div>`;
+                if (!d.freigaben?.[kwId]) {
+                    container.innerHTML = `<div class="p-10 text-center bg-yellow-50">Plan ist ENTWURF.</div>`;
                     return;
                 }
 
                 container.innerHTML = `
                     <div class="overflow-x-auto">
-                        <table class="w-full border-collapse border shadow-sm">
-                            <thead><tr id="table-header" class="bg-blue-50 text-left text-xs uppercase text-blue-900"></tr></thead>
+                        <table class="w-full border-collapse border">
+                            <thead><tr id="table-header" class="bg-blue-50 text-left text-xs uppercase"></tr></thead>
                             <tbody id="matrix-body" class="bg-white"></tbody>
                         </table>
                     </div>`;
@@ -69,31 +64,47 @@
                     tage.push(tag.toISOString().split('T')[0]);
                 }
 
-                // Kopfzeile OHNE Gesamt-Spalte
                 document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
-                    tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('');
+                    tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}</th>`).join('');
 
-                // Zeilen OHNE Gesamt-Spalte
                 document.getElementById('matrix-body').innerHTML = (d.mitarbeiterListe || []).map(m => {
                     const termineMA = (d.termine || []).filter(x => x.mitarbeiter === m.name && tage.includes(x.datum));
                     return `
                         <tr class="hover:bg-gray-50">
-                            <td class="p-3 border font-semibold text-sm text-gray-700">${m.name}</td>
+                            <td class="p-3 border font-bold">${m.name}</td>
                             ${tage.map(t => {
-                                const termineDesTages = termineMA.filter(x => x.datum === t);
-                                return `<td class="p-2 border text-[11px] h-20 align-top">
-                                    ${termineDesTages.map(termin => `
-                                        <div class="p-1 rounded border mb-1 bg-blue-100 border-blue-200">
-                                            <b>${termin.kunde}</b><br>${termin.von_uhrzeit}-${termin.bis_uhrzeit}
-                                        </div>`).join('')}
+                                const termin = termineMA.find(x => x.datum === t);
+                                if (!termin) return '<td class="p-2 border"></td>';
+                                
+                                // Wenn MA selbst: Bearbeitbar, sonst nur Info
+                                const isOwner = m.name === meinName;
+                                const v = termin.aktuell || termin.original;
+
+                                return `<td class="p-2 border ${termin.hatAenderung ? 'bg-orange-50' : ''}">
+                                    <b>${termin.kunde}</b><br>
+                                    ${isOwner ? `
+                                        <input type="time" id="von-${termin.id}" value="${v.von}" class="border w-20 text-xs">
+                                        <input type="time" id="bis-${termin.id}" value="${v.bis}" class="border w-20 text-xs mt-1">
+                                        <button onclick="terminVerschieben(${termin.id})" class="bg-green-500 text-white px-2 py-1 text-[10px] mt-1 rounded">Speichern</button>
+                                    ` : `${v.von}-${v.bis}`}
                                 </td>`;
                             }).join('')}
                         </tr>
                     `;
                 }).join('');
-            } catch (err) {
-                container.innerHTML = "<p class='text-red-500'>Fehler beim Laden.</p>";
-            }
+            } catch (err) { container.innerHTML = "Fehler beim Laden."; }
+        }
+
+        async function terminVerschieben(id) {
+            const neueVon = document.getElementById(`von-${id}`).value;
+            const neueBis = document.getElementById(`bis-${id}`).value;
+            await fetch('/api/mitarbeiter/verschieben', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id, neueVon, neueBis })
+            });
+            alert("Verschoben!");
+            ladeUebersicht();
         }
 
         function wocheBlaettern(n) { 
