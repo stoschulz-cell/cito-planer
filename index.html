@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Cito Care Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+    <div class="bg-white p-8 rounded-xl shadow-md w-96">
+        <h1 class="text-2xl font-bold mb-6">Anmeldung</h1>
+        <input id="name" placeholder="Name" class="w-full border p-2 mb-2 rounded">
+        <input id="pass" type="password" placeholder="Passwort" class="w-full border p-2 mb-4 rounded">
+        <button onclick="login()" class="w-full bg-blue-600 text-white p-2 rounded">Einloggen</button>
+    </div>
+
+    <script>
+        async function login() {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name: document.getElementById('name').value, passwort: document.getElementById('pass').value })
+            });
+            const data = await res.json();
+            if (data.success) {
+                localStorage.setItem('user', data.name);
+                window.location.href = data.role === 'planer' ? 'planer.html' : 'mitarbeiter.html';
+            } else { alert("Fehler!"); }
+        }
+    </script>
+</body>
+</html>
