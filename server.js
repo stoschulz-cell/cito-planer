@@ -6,7 +6,6 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static('public'));
 
-// Nutzt die in Render gespeicherte Variable
 const uri = process.env.MONGO_URI;
 const client = new MongoClient(uri);
 let db;

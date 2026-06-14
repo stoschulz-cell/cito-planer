@@ -15,6 +15,45 @@
         return tage;
     }
 
+    window.ladeDashboard = async function() {
+        try {
+            const antwort = await fetch(`${API_URL}/planer/dashboard`);
+            const daten = await antwort.json();
+            const wochenTage = getWochenDaten(fokusDatum);
+
+            const sidebar = document.getElementById('mitarbeiter-liste-sidebar');
+            if(sidebar) {
+                sidebar.innerHTML = daten.mitarbeiter.map((m, index) => `
+                    <div class="p-2 bg-gray-50 rounded-xl text-xs font-bold flex justify-between items-center border border-gray-100">
+                        <span>${m}</span>
+                        <div class="flex gap-1">
+                            <button onclick="window.mitarbeiterVerschieben(${index}, -1)">▲</button>
+                            <button onclick="window.mitarbeiterVerschieben(${index}, 1)">▼</button>
+                            <button onclick="window.mitarbeiterLoeschen('${m}')" class="text-red-500">✕</button>
+                        </div>
+                    </div>`).join('');
+            }
+
+            const matrixBody = document.getElementById('matrix-body');
+            if(matrixBody) {
+                matrixBody.innerHTML = "";
+                daten.mitarbeiter.forEach(m => {
+                    let row = document.createElement('tr');
+                    row.innerHTML = `<td class="p-3 font-bold border-r bg-gray-50 sticky left-0 z-10">${m}</td>`;
+                    wochenTage.forEach(tag => {
+                        let cell = document.createElement('td');
+                        cell.className = "p-2 border-r min-w-[150px] align-top";
+                        daten.termine.filter(t => t.mitarbeiter === m && t.datum === tag).forEach(t => {
+                            cell.innerHTML += `<div class="bg-blue-50 p-2 mb-1 rounded text-[10px] cursor-pointer" onclick="window.terminVerschiebenPrompt(${t.id})">${t.kunde}</div>`;
+                        });
+                        row.appendChild(cell);
+                    });
+                    matrixBody.appendChild(row);
+                });
+            }
+        } catch (e) { console.error("Fehler beim Laden:", e); }
+    };
+
     window.mitarbeiterVerschieben = async function(index, richtung) {
         const antwort = await fetch(`${API_URL}/planer/dashboard`);
         const daten = await antwort.json();
@@ -31,39 +70,6 @@
             });
             window.ladeDashboard();
         }
-    };
-
-    window.ladeDashboard = async function() {
-        const antwort = await fetch(`${API_URL}/planer/dashboard`);
-        const daten = await antwort.json();
-        const wochenTage = getWochenDaten(fokusDatum);
-
-        document.getElementById('mitarbeiter-liste-sidebar').innerHTML = daten.mitarbeiter.map((m, index) => `
-            <div class="p-2 bg-gray-50 rounded-xl text-xs font-bold flex justify-between items-center border border-gray-100">
-                <span>${m}</span>
-                <div class="flex gap-1">
-                    <button onclick="window.mitarbeiterVerschieben(${index}, -1)" class="cursor-pointer">▲</button>
-                    <button onclick="window.mitarbeiterVerschieben(${index}, 1)" class="cursor-pointer">▼</button>
-                    <button onclick="window.mitarbeiterLoeschen('${m}')" class="text-red-500">✕</button>
-                </div>
-            </div>`).join('');
-
-        const matrixBody = document.getElementById('matrix-body');
-        matrixBody.innerHTML = "";
-        
-        daten.mitarbeiter.forEach(m => {
-            let row = document.createElement('tr');
-            row.innerHTML = `<td class="p-3 font-bold border-r bg-gray-50 sticky left-0 z-10">${m}</td>`;
-            wochenTage.forEach(tag => {
-                let cell = document.createElement('td');
-                cell.className = "p-2 border-r min-w-[150px] align-top";
-                daten.termine.filter(t => t.mitarbeiter === m && t.datum === tag).forEach(t => {
-                    cell.innerHTML += `<div class="bg-blue-50 p-2 mb-1 rounded text-[10px] cursor-pointer" onclick="window.terminVerschiebenPrompt(${t.id})">${t.kunde}</div>`;
-                });
-                row.appendChild(cell);
-            });
-            matrixBody.appendChild(row);
-        });
     };
 
     window.mitarbeiterLoeschen = async function(name) {
@@ -85,5 +91,8 @@
         }
     };
 
-    window.ladeDashboard();
+    // WICHTIG: Erst laden, wenn Seite bereit ist
+    document.addEventListener('DOMContentLoaded', () => {
+        window.ladeDashboard();
+    });
 </script>
