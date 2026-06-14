@@ -56,13 +56,13 @@ app.get('/api/planer/dashboard', async (req, res) => {
     }
 });
 
-// --- PLAN FREIGABE ---
+// --- NEUE ROUTE FÜR WÖCHENTLICHE FREIGABE ---
 app.post('/api/planer/freigabe', async (req, res) => {
     try {
-        const { status } = req.body; // true oder false
+        const { kwId, status } = req.body; // z.B. kwId: "2026-24"
         await db.collection('daten').updateOne(
             { id: "main" }, 
-            { $set: { planFreigegeben: status } }
+            { $set: { [`freigaben.${kwId}`]: status } }
         );
         res.json({ success: true });
     } catch (e) {

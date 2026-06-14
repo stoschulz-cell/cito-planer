@@ -16,7 +16,6 @@
         </div>
         
         <div class="bg-white p-6 rounded-b-xl shadow-lg grid grid-cols-1 md:grid-cols-4 gap-8">
-            
             <div class="md:col-span-1 border-r pr-4">
                 <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2">Mitarbeiter</h2>
                 <div id="mitarbeiter-liste-sidebar" class="space-y-2 mb-6"></div>
@@ -45,7 +44,6 @@
                     <h2 id="kw-titel" class="font-bold text-xl text-blue-900"></h2>
                     <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold hover:bg-gray-300">Nächste Woche »</button>
                 </div>
-                
                 <div class="overflow-x-auto">
                     <table class="w-full border-collapse border shadow-sm">
                         <thead>
@@ -61,27 +59,33 @@
     <script>
         let aktuellerMontag = new Date();
         aktuellerMontag.setDate(aktuellerMontag.getDate() - (aktuellerMontag.getDay() + 6) % 7);
-        let istFreigegeben = false;
+
+        function getKwId(date) {
+            let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+            let kw = Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1)/7);
+            return `${d.getUTCFullYear()}-${kw}`;
+        }
 
         async function ladeDashboard() {
             const res = await fetch('/api/planer/dashboard');
             const d = await res.json();
-            
-            // Freigabe-Status Logik
-            istFreigegeben = d.planFreigegeben || false;
-            const btn = document.getElementById('btn-freigabe');
-            btn.innerText = istFreigegeben ? "Plan ist FREIGEGEBEN" : "Plan ist GESPERRT";
-            btn.className = istFreigegeben ? "bg-green-500 hover:bg-green-600 text-white" : "bg-yellow-500 hover:bg-yellow-600 text-black";
+            const kwId = getKwId(aktuellerMontag);
+            const istFreigegeben = d.freigaben?.[kwId] || false;
 
-            document.getElementById('kw-titel').innerText = `KW ${getKW(aktuellerMontag)}`;
+            const btn = document.getElementById('btn-freigabe');
+            btn.innerText = istFreigegeben ? "Plan ist FREIGEGEBEN" : "Plan ist ENTWURF";
+            btn.className = istFreigegeben ? "bg-green-500 text-white" : "bg-yellow-500 text-black";
+
+            document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]} (${kwId.split('-')[0]})`;
 
             document.getElementById('mitarbeiter-liste-sidebar').innerHTML = d.mitarbeiterListe.map(m => `
                 <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
                     <span class="truncate w-20">${m.name}</span>
                     <div class="flex gap-1">
-                        <button onclick="sortiereMitarbeiter('${m.name}', 'up')" class="bg-gray-200 hover:bg-gray-300 px-1 rounded">▲</button>
-                        <button onclick="sortiereMitarbeiter('${m.name}', 'down')" class="bg-gray-200 hover:bg-gray-300 px-1 rounded">▼</button>
-                        <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold px-2 hover:text-red-700">✕</button>
+                        <button onclick="sortiereMitarbeiter('${m.name}', 'up')" class="bg-gray-200 px-1 rounded">▲</button>
+                        <button onclick="sortiereMitarbeiter('${m.name}', 'down')" class="bg-gray-200 px-1 rounded">▼</button>
+                        <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold px-2">✕</button>
                     </div>
                 </div>
             `).join('');
@@ -99,28 +103,25 @@
 
             document.getElementById('matrix-body').innerHTML = d.mitarbeiterListe.map(m => {
                 const termineMA = (d.termine || []).filter(x => x.mitarbeiter === m.name && tage.includes(x.datum));
-                let wochenStunden = termineMA.reduce((sum, t) => {
-                    let [sH, sM] = t.von_uhrzeit.split(':').map(Number);
-                    let [eH, eM] = t.bis_uhrzeit.split(':').map(Number);
-                    let diff = (eH * 60 + eM) - (sH * 60 + sM);
-                    return sum + (diff > 0 ? diff / 60 : 0);
-                }, 0);
-
                 return `
                     <tr class="hover:bg-gray-50">
                         <td class="p-3 border font-semibold text-sm text-gray-700">${m.name}</td>
                         ${tage.map(t => {
                             const termineDesTages = termineMA.filter(x => x.datum === t);
-                            return `<td class="p-2 border text-[11px] h-20 align-top">
+                            return `<td class="p-2 border text-[11px] h-20 align-top ${istFreigegeben ? '' : 'bg-yellow-50'}">
                                 ${termineDesTages.map(termin => `
-                                    <div class="bg-blue-100 p-1 rounded border border-blue-200 mb-1">
+                                    <div class="p-1 rounded border mb-1 ${istFreigegeben ? 'bg-blue-100 border-blue-200' : 'bg-white border-dashed border-yellow-400'}">
                                         <b>${termin.kunde}</b><br>${termin.von_uhrzeit}-${termin.bis_uhrzeit}
-                                        <button onclick="terminLoeschen(${termin.id})" class="text-red-600 font-bold block mt-1 hover:text-red-800">✕</button>
+                                        <button onclick="terminLoeschen(${termin.id})" class="text-red-600 font-bold block mt-1">✕</button>
                                     </div>
                                 `).join('')}
                             </td>`;
                         }).join('')}
-                        <td class="p-3 border font-bold text-center bg-gray-100">${wochenStunden.toFixed(1)}</td>
+                        <td class="p-3 border font-bold text-center bg-gray-100">${(termineMA.reduce((s,t) => {
+                            let [sH, sM] = t.von_uhrzeit.split(':').map(Number);
+                            let [eH, eM] = t.bis_uhrzeit.split(':').map(Number);
+                            return s + ((eH * 60 + eM) - (sH * 60 + sM))/60;
+                        }, 0)).toFixed(1)}</td>
                     </tr>
                 `;
             }).join('');
@@ -129,33 +130,22 @@
         }
 
         async function toggleFreigabe() {
+            const kwId = getKwId(aktuellerMontag);
             await fetch('/api/planer/freigabe', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ status: !istFreigegeben })
+                body: JSON.stringify({ kwId, status: !document.getElementById('btn-freigabe').innerText.includes("FREI") })
             });
             ladeDashboard();
         }
 
-        async function sortiereMitarbeiter(name, richtung) {
-            await fetch('/api/planer/mitarbeiter/sortieren', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name, richtung })
-            });
-            ladeDashboard();
-        }
-
-        function getKW(date) {
-            let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-            d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-            return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1)/7);
-        }
+        // Hilfsfunktionen (sortiereMitarbeiter, wocheBlaettern, etc. bleiben gleich)
+        async function sortiereMitarbeiter(name, richtung) { await fetch('/api/planer/mitarbeiter/sortieren', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, richtung }) }); ladeDashboard(); }
         function wocheBlaettern(n) { aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7)); ladeDashboard(); }
         async function mitarbeiterAnlegen() { const name = document.getElementById('new-ma').value; if(!name) return; await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); document.getElementById('new-ma').value = ''; ladeDashboard(); }
         async function mitarbeiterLoeschen(name) { if(confirm(`Wirklich ${name} löschen?`)) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); } }
         async function terminAnlegen() { const termin = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(termin) }); ladeDashboard(); }
-        async function terminLoeschen(id) { if(confirm("Termin wirklich löschen?")) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); } }
+        async function terminLoeschen(id) { if(confirm("Termin wirklich löschen?")) { await fetch(`/api/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); } }
         window.onload = ladeDashboard;
     </script>
 </body>
