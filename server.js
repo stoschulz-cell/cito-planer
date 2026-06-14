@@ -1,10 +1,12 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
+const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.static('./'));
+// Nutzt das aktuelle Verzeichnis, in dem server.js liegt
+app.use(express.static(__dirname));
 
 const uri = process.env.MONGO_URI;
 const client = new MongoClient(uri);
@@ -14,12 +16,13 @@ async function startServer() {
     try {
         await client.connect();
         db = client.db("CitoCareDB");
-        console.log("Cito Care Server läuft fehlerfrei auf Port 3000");
+        console.log("Cito Care Server läuft auf Port 3000");
         app.listen(port, '0.0.0.0');
     } catch (err) { console.error("Verbindungsfehler:", err); }
 }
 startServer();
 
+// API Endpunkte
 app.get('/api/planer/dashboard', async (req, res) => {
     let data = await db.collection('daten').findOne({ id: "main" }) || 
                  { mitarbeiter: [], termine: [], wunschfrei: [], wunschtermineKlienten: [] };
