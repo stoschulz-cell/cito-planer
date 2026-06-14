@@ -2,38 +2,49 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Cito Care Planer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cito Care - Planer Zentrale</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 p-5">
+<body class="bg-gray-100 min-h-screen p-5">
 
-    <div id="login-view" class="max-w-md mx-auto bg-white p-6 rounded shadow">
-        <h2 class="text-xl font-bold mb-4">Anmeldung</h2>
-        <input id="nameInput" placeholder="Dein Name" class="border p-2 w-full mb-4 rounded">
-        <button onclick="login()" class="bg-blue-600 text-white w-full p-2 rounded font-bold cursor-pointer">Login</button>
+    <div id="login-view" class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-lg mt-20">
+        <h2 class="text-xl font-bold mb-4 text-gray-800">Cito Care Anmeldung</h2>
+        <input id="nameInput" placeholder="Dein Name" class="border p-2 w-full mb-4 rounded-xl">
+        <button onclick="login()" class="bg-blue-600 text-white w-full p-2 rounded-xl font-bold">Login</button>
     </div>
 
     <div id="planer-view" class="hidden">
-        <h1 class="text-2xl font-bold mb-4">Planer Dashboard</h1>
-        <table class="w-full bg-white shadow rounded border-collapse">
-            <thead>
-                <tr class="bg-gray-200">
-                    <th class="p-3 border">Mitarbeiter</th>
-                    <th class="p-3 border">Termine</th>
-                </tr>
-            </thead>
-            <tbody id="matrix-body"></tbody>
-        </table>
-        <button onclick="logout()" class="bg-red-500 text-white p-2 rounded mt-4">Abmelden</button>
+        <div class="bg-blue-600 p-6 rounded-2xl text-white shadow-md mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-black">Planer Dashboard</h1>
+                <p id="kw-anzeige" class="text-sm opacity-80"></p>
+            </div>
+            <button onclick="location.reload()" class="bg-red-500 px-4 py-2 rounded-xl text-sm font-bold">Abmelden</button>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="p-3 border-b">Mitarbeiter</th>
+                        <th class="p-3 border-b">Termine</th>
+                    </tr>
+                </thead>
+                <tbody id="matrix-body"></tbody>
+            </table>
+        </div>
     </div>
 
     <div id="mitarbeiter-view" class="hidden">
         <h1 class="text-2xl font-bold mb-4">Meine Termine</h1>
-        <div id="meine-termine" class="bg-white p-4 rounded shadow"></div>
-        <button onclick="logout()" class="bg-red-500 text-white p-2 rounded mt-4">Abmelden</button>
+        <div id="meine-termine" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100"></div>
+        <button onclick="location.reload()" class="bg-red-500 text-white px-4 py-2 mt-4 rounded-xl text-sm">Abmelden</button>
     </div>
 
     <script>
+        let fokusDatum = new Date();
+
         async function login() {
             const name = document.getElementById('nameInput').value;
             const res = await fetch('/api/login', {
@@ -45,43 +56,55 @@
             if (res.ok) {
                 const data = await res.json();
                 document.getElementById('login-view').classList.add('hidden');
-                
                 if (data.role === 'planer') {
                     document.getElementById('planer-view').classList.remove('hidden');
-                    ladePlanerDashboard(); // Funktion zum Kalender-Zeichnen
+                    ladeDashboard();
                 } else {
                     document.getElementById('mitarbeiter-view').classList.remove('hidden');
-                    loadMitarbeiterTermine(name);
+                    loadMitarbeiterAnsicht(name);
                 }
             } else {
-                alert("Name nicht in der Datenbank gefunden.");
+                alert("Name nicht gefunden.");
             }
         }
 
-        async function ladePlanerDashboard() {
+        async function ladeDashboard() {
             const res = await fetch('/api/planer/dashboard');
-            const data = await res.json();
-            const matrixBody = document.getElementById('matrix-body');
+            const daten = await res.json();
             
-            // Hier zeichnen wir die Tabelle für den Planer
-            matrixBody.innerHTML = data.mitarbeiter.map(m => {
-                const termine = (data.termine || []).filter(t => t.mitarbeiter === m);
-                return `<tr>
-                    <td class="p-3 border font-bold">${m}</td>
-                    <td class="p-3 border">${termine.map(t => `<span class="bg-blue-100 px-2 py-1 rounded text-sm">${t.kunde}</span>`).join(' ')}</td>
-                </tr>`;
+            // KW berechnen
+            document.getElementById('kw-anzeige').innerText = "Woche " + getKW(fokusDatum);
+            
+            // Tabelle füllen
+            const matrixBody = document.getElementById('matrix-body');
+            matrixBody.innerHTML = daten.mitarbeiter.map(m => {
+                const termine = (daten.termine || []).filter(t => t.mitarbeiter === m);
+                return `
+                    <tr class="border-b">
+                        <td class="p-4 font-bold text-gray-700">${m}</td>
+                        <td class="p-4 flex gap-2 flex-wrap">
+                            ${termine.map(t => `<span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">${t.kunde}</span>`).join('')}
+                        </td>
+                    </tr>`;
             }).join('');
         }
 
-        async function loadMitarbeiterTermine(name) {
+        async function loadMitarbeiterAnsicht(name) {
             const res = await fetch('/api/planer/dashboard');
-            const data = await res.json();
+            const daten = await res.json();
             const container = document.getElementById('meine-termine');
-            const meine = data.termine.filter(t => t.mitarbeiter === name);
-            container.innerHTML = meine.length > 0 ? meine.map(t => `<div class="p-2 border-b">${t.kunde} am ${t.datum}</div>`).join('') : "Keine Termine.";
+            const meine = daten.termine.filter(t => t.mitarbeiter === name);
+            container.innerHTML = meine.length > 0 
+                ? meine.map(t => `<div class="p-2 border-b">${t.kunde} am ${t.datum}</div>`).join('') 
+                : "Keine Termine für diese Woche.";
         }
 
-        function logout() { location.reload(); }
+        function getKW(d) {
+            let t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+            let jahr = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+            return Math.ceil((((t - jahr) / 86400000) + 1) / 7);
+        }
     </script>
 </body>
 </html>
