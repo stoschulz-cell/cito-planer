@@ -72,16 +72,19 @@
             document.getElementById('btn-freigabe').innerText = (d.freigaben?.[kwId]) ? "Plan ist FREIGEGEBEN" : "Plan ist ENTWURF";
             document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
 
-            // Mitarbeiter Liste
+            // Mitarbeiter mit Sortier-Buttons
             document.getElementById('mitarbeiter-liste-sidebar').innerHTML = (d.mitarbeiterListe || []).map(m => `
                 <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
                     <span>${m.name}</span>
-                    <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold">✕</button>
+                    <div class="flex gap-1">
+                        <button onclick="sortiereMitarbeiter('${m.name}', 'up')" class="bg-gray-200 px-1 rounded">▲</button>
+                        <button onclick="sortiereMitarbeiter('${m.name}', 'down')" class="bg-gray-200 px-1 rounded">▼</button>
+                        <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold px-2">✕</button>
+                    </div>
                 </div>`).join('');
             
             document.getElementById('termin-ma').innerHTML = (d.mitarbeiterListe || []).map(m => `<option value="${m.name}">${m.name}</option>`).join('');
 
-            // Tabelle aufbauen
             let tage = [];
             for(let i=0; i<7; i++) {
                 let tag = new Date(aktuellerMontag);
@@ -111,6 +114,7 @@
             }).join('');
         }
 
+        async function sortiereMitarbeiter(name, richtung) { await fetch('/api/planer/mitarbeiter/sortieren', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, richtung }) }); ladeDashboard(); }
         async function bestaetigen(id) { await fetch('/api/planer/termin/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
         async function terminAnlegen() { const t = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
         async function mitarbeiterAnlegen() { const name = document.getElementById('new-ma').value; await fetch('/api/planer/mitarbeiter', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); ladeDashboard(); }

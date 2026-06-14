@@ -18,26 +18,20 @@ async function startServer() {
         db = client.db("CitoCareDB");
         console.log("Verbunden mit MongoDB!");
         app.listen(port, () => console.log(`Server läuft auf Port ${port}`));
-    } catch (e) {
-        console.error("Datenbank-Verbindungsfehler:", e);
-    }
+    } catch (e) { console.error("Datenbank-Verbindungsfehler:", e); }
 }
 startServer();
 
-// --- LOGIN ---
+// --- AUTH ---
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { name, passwort } = req.body;
         const data = await db.collection('daten').findOne({ id: "main" });
-        const inputName = name.trim().toLowerCase();
-        const user = data.mitarbeiterListe.find(m => m.name.toLowerCase() === inputName);
-
+        const user = data.mitarbeiterListe.find(m => m.name.toLowerCase() === name.trim().toLowerCase());
         if (user && user.passwort === passwort) {
-            const istPlaner = data.planerListe?.some(p => p.toLowerCase() === inputName);
+            const istPlaner = data.planerListe?.some(p => p.toLowerCase() === name.trim().toLowerCase());
             res.json({ success: true, name: user.name, role: istPlaner ? 'planer' : 'mitarbeiter' });
-        } else {
-            res.status(401).json({ error: "Falsche Anmeldedaten" });
-        }
+        } else res.status(401).json({ error: "Falsche Anmeldedaten" });
     } catch (e) { res.status(500).json({ error: "Server Fehler" }); }
 });
 
@@ -49,54 +43,31 @@ app.get('/api/planer/dashboard', async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Fehler beim Laden" }); }
 });
 
-// --- MITARBEITER VERSCHIEBEN (NEU: Original bleibt, aktuell wird gesetzt) ---
+// --- TERMIN LOGIK ---
 app.post('/api/mitarbeiter/verschieben', async (req, res) => {
     try {
         const { id, neueVon, neueBis } = req.body;
         await db.collection('daten').updateOne(
             { id: "main", "termine.id": Number(id) },
-            { 
-                $set: { 
-                    "termine.$.aktuell": { von: neueVon, bis: neueBis },
-                    "termine.$.hatAenderung": true 
-                } 
-            }
+            { $set: { "termine.$.aktuell": { von: neueVon, bis: neueBis }, "termine.$.hatAenderung": true } }
         );
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fehler beim Verschieben" }); }
 });
 
-// --- PLANER BESTÄTIGT ÄNDERUNG ---
 app.post('/api/planer/termin/bestaetigen', async (req, res) => {
     try {
         const { id } = req.body;
-        // Kopiere aktuell auf original und setze hatAenderung auf false
         const data = await db.collection('daten').findOne({ id: "main" });
         const term = data.termine.find(t => t.id === Number(id));
-        
         await db.collection('daten').updateOne(
             { id: "main", "termine.id": Number(id) },
-            { 
-                $set: { 
-                    "termine.$.original": term.aktuell,
-                    "termine.$.hatAenderung": false 
-                } 
-            }
+            { $set: { "termine.$.original": term.aktuell, "termine.$.hatAenderung": false } }
         );
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fehler bei Bestätigung" }); }
 });
 
-// --- FREIGABE ---
-app.post('/api/planer/freigabe', async (req, res) => {
-    try {
-        const { kwId, status } = req.body;
-        await db.collection('daten').updateOne({ id: "main" }, { $set: { [`freigaben.${kwId}`]: status } });
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Fehler bei Freigabe" }); }
-});
-
-// --- TERMIN ANLEGEN ---
 app.post('/api/planer/termin', async (req, res) => {
     try {
         const { mitarbeiter, kunde, datum, von_uhrzeit, bis_uhrzeit } = req.body;
@@ -108,8 +79,49 @@ app.post('/api/planer/termin', async (req, res) => {
         };
         await db.collection('daten').updateOne({ id: "main" }, { $push: { termine: neuerTermin } });
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Fehler beim Speichern" }); }
+    } catch (e) { res.status(500).json({ error: "Fehler beim Anlegen" }); }
 });
 
-// --- RESTLICHE ROUTEN (Löschen, MA anlegen etc. wie gehabt) ---
-// ... (Die vorhandenen Routen für Löschen und Sortieren einfach hier beibehalten)
+app.delete('/api/planer/termin/:id', async (req, res) => {
+    try {
+        await db.collection('daten').updateOne({ id: "main" }, { $pull: { termine: { id: Number(req.params.id) } } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Fehler beim Löschen" }); }
+});
+
+// --- MITARBEITER VERWALTUNG ---
+app.post('/api/planer/mitarbeiter', async (req, res) => {
+    try {
+        await db.collection('daten').updateOne({ id: "main" }, { $push: { mitarbeiterListe: { name: req.body.name, passwort: "cito2026" } } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Fehler beim Anlegen" }); }
+});
+
+app.delete('/api/planer/mitarbeiter/:name', async (req, res) => {
+    try {
+        await db.collection('daten').updateOne({ id: "main" }, { $pull: { mitarbeiterListe: { name: req.params.name } } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Fehler beim Löschen" }); }
+});
+
+app.post('/api/planer/mitarbeiter/sortieren', async (req, res) => {
+    try {
+        const { name, richtung } = req.body;
+        const data = await db.collection('daten').findOne({ id: "main" });
+        let liste = data.mitarbeiterListe;
+        const idx = liste.findIndex(m => m.name === name);
+        if (richtung === 'up' && idx > 0) [liste[idx], liste[idx-1]] = [liste[idx-1], liste[idx]];
+        else if (richtung === 'down' && idx < liste.length - 1) [liste[idx], liste[idx+1]] = [liste[idx+1], liste[idx]];
+        await db.collection('daten').updateOne({ id: "main" }, { $set: { mitarbeiterListe: liste } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Fehler beim Sortieren" }); }
+});
+
+// --- FREIGABE ---
+app.post('/api/planer/freigabe', async (req, res) => {
+    try {
+        const { kwId, status } = req.body;
+        await db.collection('daten').updateOne({ id: "main" }, { $set: { [`freigaben.${kwId}`]: status } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Fehler bei Freigabe" }); }
+});
