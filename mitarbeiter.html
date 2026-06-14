@@ -2,32 +2,35 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Cito Care Mitarbeiter</title>
+    <title>Cito Care Dienstplan Übersicht</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 p-5">
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
+    <div class="max-w-7xl mx-auto bg-white p-6 rounded shadow">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-xl font-bold">Meine Termine - <span id="ma-name" class="text-blue-600"></span></h1>
-            <div class="flex items-center gap-2">
-                <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-3 py-1 rounded text-sm hover:bg-gray-300">«</button>
-                <span id="kw-titel" class="font-bold w-32 text-center text-sm"></span>
-                <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-3 py-1 rounded text-sm hover:bg-gray-300">»</button>
+            <h1 class="text-xl font-bold">Dienstplan - Übersicht</h1>
+            <div class="flex items-center gap-4">
+                <button onclick="wocheBlaettern(-1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">« Vorherige</button>
+                <h2 id="kw-titel" class="font-bold text-lg text-blue-900 w-40 text-center"></h2>
+                <button onclick="wocheBlaettern(1)" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">Nächste »</button>
+                <button onclick="window.location.href='index.html'" class="bg-red-500 text-white px-4 py-2 rounded text-sm font-bold">Abmelden</button>
             </div>
         </div>
-        
-        <div id="meine-ansicht" class="space-y-4">Lade Termine...</div>
-        
-        <button onclick="window.location.href='index.html'" class="mt-6 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Abmelden</button>
+
+        <div class="overflow-x-auto">
+            <table class="w-full border-collapse border shadow-sm">
+                <thead>
+                    <tr id="table-header" class="bg-blue-50 text-left text-xs uppercase text-blue-900"></tr>
+                </thead>
+                <tbody id="matrix-body" class="bg-white"></tbody>
+            </table>
+        </div>
     </div>
 
     <script>
-        const meinName = localStorage.getItem('mitarbeiterName') || "";
         let aktuellerMontag = new Date();
         aktuellerMontag.setDate(aktuellerMontag.getDate() - (aktuellerMontag.getDay() + 6) % 7);
         aktuellerMontag.setHours(0,0,0,0);
-
-        document.getElementById('ma-name').innerText = meinName || "Gast";
 
         function getKwId(date) {
             let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -36,85 +39,54 @@
             return `${d.getUTCFullYear()}-${kw}`;
         }
 
-        async function ladeMitarbeiterAnsicht() {
-            const ansichtDiv = document.getElementById('meine-ansicht');
-            try {
-                const res = await fetch('/api/planer/dashboard');
-                if (!res.ok) throw new Error("Server antwortet nicht (Status " + res.status + ")");
-                
-                const d = await res.json();
-                const kwId = getKwId(aktuellerMontag);
-                document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]} (${kwId.split('-')[0]})`;
+        async function ladeUebersicht() {
+            const res = await fetch('/api/planer/dashboard');
+            const d = await res.json();
+            const kwId = getKwId(aktuellerMontag);
+            
+            document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
 
-                if (!d.freigaben || d.freigaben[kwId] !== true) {
-                    ansichtDiv.innerHTML = `<p class="text-red-500 p-4 border border-red-200 bg-red-50 rounded">Der Dienstplan für diese Woche wurde noch nicht freigegeben.</p>`;
-                    return;
-                }
-
-                let montag = new Date(aktuellerMontag);
-                let sonntag = new Date(montag);
-                sonntag.setDate(sonntag.getDate() + 6);
-
-                // SICHERER FILTER: Prüft explizit auf Existenz der Felder
-                const meineTermine = (d.termine || []).filter(t => {
-                    if (!t || typeof t.mitarbeiter !== 'string' || !t.datum) return false;
-                    
-                    let [y, m, d_val] = t.datum.split('-').map(Number);
-                    let terminDate = new Date(y, m - 1, d_val);
-                    
-                    return t.mitarbeiter.trim() === meinName.trim() && terminDate >= montag && terminDate <= sonntag;
-                });
-
-                if (meineTermine.length === 0) {
-                    ansichtDiv.innerHTML = "<p class='text-gray-500 italic'>Keine Termine für diese Woche gefunden.</p>";
-                } else {
-                    ansichtDiv.innerHTML = meineTermine.map(t => `
-                        <div class="p-4 border rounded ${t.istGeaendert ? 'bg-orange-50 border-orange-400' : 'bg-blue-50 border-blue-200'}">
-                            <div class="flex justify-between items-center">
-                                <p class="font-bold text-gray-800">${t.kunde || 'Unbekannter Kunde'} <span class="text-sm font-normal text-gray-500">(${t.datum})</span></p>
-                                ${t.istGeaendert ? '<span class="text-[10px] bg-orange-200 px-2 rounded font-bold uppercase">Geändert</span>' : ''}
-                            </div>
-                            <div class="flex gap-2 mt-2 items-center">
-                                <input type="time" id="von-${t.id}" value="${t.von_uhrzeit || ''}" class="border p-1 rounded">
-                                <span>bis</span>
-                                <input type="time" id="bis-${t.id}" value="${t.bis_uhrzeit || ''}" class="border p-1 rounded">
-                                <button onclick="terminAendern(${t.id})" class="bg-green-600 text-white px-4 py-1 rounded text-sm hover:bg-green-700 font-bold">Speichern</button>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-            } catch (err) {
-                console.error("Fehler beim Laden:", err);
-                ansichtDiv.innerHTML = "Fehler beim Laden der Daten. Prüfe die Konsole (F12).";
+            let tage = [];
+            for(let i=0; i<7; i++) {
+                let tag = new Date(aktuellerMontag);
+                tag.setDate(tag.getDate() + i);
+                tage.push(tag.toISOString().split('T')[0]);
             }
+
+            document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
+                tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}.</th>`).join('') +
+                '<th class="p-3 border">Gesamt</th>';
+
+            document.getElementById('matrix-body').innerHTML = (d.mitarbeiterListe || []).map(m => {
+                const termineMA = (d.termine || []).filter(x => x.mitarbeiter === m.name && tage.includes(x.datum));
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-3 border font-semibold text-sm text-gray-700">${m.name}</td>
+                        ${tage.map(t => {
+                            const termineDesTages = termineMA.filter(x => x.datum === t);
+                            return `<td class="p-2 border text-[11px] h-20 align-top">
+                                ${termineDesTages.map(termin => `
+                                    <div class="p-1 rounded border mb-1 bg-blue-100 border-blue-200">
+                                        <b>${termin.kunde}</b><br>${termin.von_uhrzeit}-${termin.bis_uhrzeit}
+                                    </div>`).join('')}
+                            </td>`;
+                        }).join('')}
+                        <td class="p-3 border font-bold text-center bg-gray-100">${(termineMA.reduce((s,t) => {
+                            let [sH, sM] = t.von_uhrzeit.split(':').map(Number);
+                            let [eH, eM] = t.bis_uhrzeit.split(':').map(Number);
+                            return s + ((eH * 60 + eM) - (sH * 60 + sM))/60;
+                        }, 0)).toFixed(1)}</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function wocheBlaettern(n) { 
             aktuellerMontag.setDate(aktuellerMontag.getDate() + (n * 7)); 
-            ladeMitarbeiterAnsicht(); 
+            ladeUebersicht(); 
         }
 
-        async function terminAendern(id) {
-            const von = document.getElementById(`von-${id}`).value;
-            const bis = document.getElementById(`bis-${id}`).value;
-            try {
-                const res = await fetch('/api/mitarbeiter/termin/update', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ id, von, bis, geaendertVon: meinName })
-                });
-                if(res.ok) {
-                    alert("Änderung erfolgreich übermittelt!");
-                    ladeMitarbeiterAnsicht();
-                } else {
-                    alert("Fehler beim Speichern!");
-                }
-            } catch (e) {
-                alert("Verbindungsfehler!");
-            }
-        }
-
-        window.onload = ladeMitarbeiterAnsicht;
+        window.onload = ladeUebersicht;
     </script>
 </body>
 </html>
