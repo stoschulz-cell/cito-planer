@@ -34,7 +34,6 @@
     </div>
 
     <script>
-        // Stabile Datums-Logik: Immer den Montag der aktuellen Woche finden
         let aktuellerMontag = new Date();
         let day = aktuellerMontag.getUTCDay();
         let diff = aktuellerMontag.getUTCDate() - day + (day === 0 ? -6 : 1);
@@ -48,10 +47,8 @@
             ladeUebersicht(); 
         }
 
-        // ISO 8601 KW-Berechnung
         function getISOWeek(date) {
             let d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-            // Donnerstag der aktuellen Woche finden
             d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
             let yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
             return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
@@ -62,7 +59,6 @@
                 const res = await fetch('/api/planer/dashboard');
                 const d = await res.json();
                 
-                // KW im Header aktualisieren
                 document.getElementById('kw-titel').innerText = `KW ${getISOWeek(aktuellerMontag)}`;
 
                 let tage = [];
@@ -84,17 +80,20 @@
                 d.mitarbeiterListe.forEach(m => {
                     const isOwner = (m.name.toLowerCase() === (localStorage.getItem('mitarbeiterName') || "").toLowerCase());
                     html += `<tr><td class="p-3 border font-bold ${isOwner ? 'bg-blue-100' : ''}">${m.name}</td>`;
+                    
                     tage.forEach(t => {
-                        const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
-                        if (!termin) {
-                            html += `<td class="border p-2 h-16"></td>`;
-                        } else {
+                        // Hier werden ALLE Termine des Mitarbeiters an diesem Tag gefiltert
+                        const termine = (d.termine || []).filter(x => x.mitarbeiter === m.name && x.datum === t);
+                        
+                        html += `<td class="border p-1 h-20 align-top">`;
+                        termine.forEach(termin => {
                             let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
-                            html += `<td class="border p-2 text-[10px] ${termin.hatAenderung ? 'bg-orange-100' : ''}">
-                                        <b>${termin.kunde}</b><br>${v.von}-${v.bis} 
+                            html += `<div class="p-1 mb-1 bg-blue-50 rounded border text-[10px] ${termin.hatAenderung ? 'bg-orange-100' : ''}">
+                                        <b>${termin.kunde}</b><br>${v.von}-${v.bis}
                                         ${isOwner ? `<button onclick="terminBearbeiten('${termin.id}', '${termin.datum}', '${v.von}', '${v.bis}')" class="block w-full bg-blue-600 text-white mt-1 rounded py-0.5">Ändern</button>` : ''}
-                                    </td>`;
-                        }
+                                    </div>`;
+                        });
+                        html += `</td>`;
                     });
                     html += '</tr>';
                 });
