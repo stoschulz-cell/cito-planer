@@ -87,7 +87,6 @@
                         <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold px-2">✕</button>
                     </div>`).join('');
                 
-                // Wunsch Liste mit Grund-Anzeige
                 document.getElementById('wunsch-liste-sidebar').innerHTML = (wuensche || []).map(w => `
                     <div class="p-3 bg-yellow-50 rounded border border-yellow-200 mb-2">
                         <p class="font-bold text-xs text-yellow-900">${w.mitarbeiter}</p>
@@ -112,14 +111,19 @@
                     <tr>
                         <td class="p-3 border font-semibold text-sm">${m.name}</td>
                         ${tage.map(t => {
-                            const termin = (d.termine || []).find(x => x.mitarbeiter === m.name && x.datum === t);
-                            if (!termin) return '<td class="p-2 border"></td>';
-                            let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
-                            return `<td class="p-2 border text-[10px] h-20 ${termin.hatAenderung ? 'bg-orange-100' : ''}">
+                            // WICHTIG: Hier alle Termine eines Mitarbeiters an diesem Tag filtern
+                            const termine = (d.termine || []).filter(x => x.mitarbeiter === m.name && x.datum === t);
+                            
+                            return `<td class="p-1 border h-20 align-top">
+                                ${termine.map(termin => {
+                                    let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
+                                    return `<div class="p-1 mb-1 rounded border text-[10px] ${termin.hatAenderung ? 'bg-orange-100' : 'bg-blue-50'}">
                                         <b>${termin.kunde}</b><br>${v.von}-${v.bis}
-                                        ${termin.hatAenderung ? `<button onclick="bestaetigen(${termin.id})" class="text-green-700 block underline font-bold">✓ Bestätigen</button>` : ''}
+                                        ${termin.hatAenderung ? `<button onclick="bestaetigen(${termin.id})" class="text-green-700 block underline font-bold mt-1">✓ Bestätigen</button>` : ''}
                                         <button onclick="terminLoeschen(${termin.id})" class="text-red-500 block mt-1">✕ Löschen</button>
-                                    </td>`;
+                                    </div>`;
+                                }).join('')}
+                            </td>`;
                         }).join('')}
                     </tr>`).join('');
             } catch (e) { console.error("Ladefehler:", e); }
@@ -135,9 +139,4 @@
         async function terminAnlegen() { const t = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
         async function mitarbeiterLoeschen(name) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); }
         async function terminLoeschen(id) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); }
-        async function toggleFreigabe() { const kwId = getKwId(aktuellerMontag); await fetch('/api/planer/freigabe', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ kwId, status: !document.getElementById('btn-freigabe').innerText.includes("FREI") }) }); ladeDashboard(); }
-        
-        window.onload = ladeDashboard;
-    </script>
-</body>
-</html>
+        async function toggleFreigabe() { const kwId = getKwId(aktuellerMontag); await fetch('/api/planer/freigabe',
