@@ -13,29 +13,35 @@
         <button onclick="login()" class="bg-blue-600 text-white w-full p-2 rounded">Login</button>
     </div>
 
-    <div id="planer-view" class="hidden">
-        <div class="bg-blue-700 p-4 rounded-t-xl text-white">
-            <h1 class="text-xl font-bold">Cito Care Zentrale</h1>
-            <p class="text-xs opacity-80">Einsatzplanung & Dokumentation</p>
+    <div id="planer-view" class="hidden max-w-6xl mx-auto">
+        <div class="bg-blue-700 p-4 rounded-t-xl text-white flex justify-between">
+            <div>
+                <h1 class="text-xl font-bold">Cito Care Zentrale</h1>
+                <p class="text-xs opacity-80">Einsatzplanung & Dokumentation</p>
+            </div>
+            <button onclick="location.reload()" class="bg-red-500 px-3 py-1 rounded text-sm">Abmelden</button>
         </div>
         
-        <div class="bg-white p-4 shadow rounded-b-xl">
-            <div class="flex items-center gap-4 mb-4">
-                <button onclick="wocheWechseln(-7)" class="bg-gray-200 px-3 py-1 rounded">◀</button>
-                <span id="kw-anzeige" class="font-bold">Woche...</span>
-                <button onclick="wocheWechseln(7)" class="bg-gray-200 px-3 py-1 rounded">▶</button>
-                <button onclick="location.reload()" class="ml-auto bg-red-500 text-white px-3 py-1 rounded text-sm">Abmelden</button>
+        <div class="bg-white p-4 shadow rounded-b-xl grid grid-cols-3 gap-6">
+            <div class="col-span-1 border-r pr-4">
+                <h3 class="font-bold mb-2">Offene Wunschfrei-Anträge</h3>
+                <div id="wunschfrei-liste" class="text-sm text-gray-600"></div>
+                
+                <h3 class="font-bold mt-6 mb-2">Klienten-Pool</h3>
+                <div id="klienten-liste" class="text-sm text-gray-600"></div>
             </div>
 
-            <table class="w-full border-collapse">
-                <thead>
-                    <tr class="bg-gray-100">
-                        <th class="p-3 border">Mitarbeiter</th>
-                        <th class="p-3 border">Termine</th>
-                    </tr>
-                </thead>
-                <tbody id="matrix-body"></tbody>
-            </table>
+            <div class="col-span-2">
+                <div class="flex items-center gap-4 mb-4">
+                    <button onclick="wocheWechseln(-7)" class="bg-gray-200 px-3 py-1 rounded">◀</button>
+                    <span id="kw-anzeige" class="font-bold">Woche...</span>
+                    <button onclick="wocheWechseln(7)" class="bg-gray-200 px-3 py-1 rounded">▶</button>
+                </div>
+                <table class="w-full border-collapse">
+                    <tr class="bg-gray-100"><th class="p-2 border">Mitarbeiter</th><th class="p-2 border">Termine</th></tr>
+                    <tbody id="matrix-body"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -56,25 +62,32 @@
                 if (data.role === 'planer') {
                     document.getElementById('planer-view').classList.remove('hidden');
                     ladeDashboard();
-                } else {
-                    alert("Nur für Planer verfügbar.");
                 }
             }
         }
 
         async function ladeDashboard() {
             const res = await fetch('/api/planer/dashboard');
-            const daten = await res.json();
+            const d = await res.json();
+            
             document.getElementById('kw-anzeige').innerText = "Woche " + getKW(fokusDatum);
             
-            const matrixBody = document.getElementById('matrix-body');
-            matrixBody.innerHTML = daten.mitarbeiter.map(m => {
-                const termine = (daten.termine || []).filter(t => t.mitarbeiter === m);
+            // 1. Matrix füllen
+            document.getElementById('matrix-body').innerHTML = d.mitarbeiter.map(m => {
+                const termine = (d.termine || []).filter(t => t.mitarbeiter === m);
                 return `<tr>
-                    <td class="p-3 border font-bold">${m}</td>
-                    <td class="p-3 border">${termine.map(t => `<span class="bg-blue-100 px-2 py-1 rounded text-xs">${t.kunde}</span>`).join(' ')}</td>
+                    <td class="p-2 border font-bold">${m}</td>
+                    <td class="p-2 border">${termine.map(t => `<span class="bg-blue-100 px-2 py-1 rounded text-xs">${t.kunde}</span>`).join(' ')}</td>
                 </tr>`;
             }).join('');
+
+            // 2. Wunschfrei füllen
+            document.getElementById('wunschfrei-liste').innerHTML = (d.wunschfrei || []).map(w => 
+                `<div class="p-2 border-b text-xs">${w.name}: ${w.datum}</div>`).join('');
+
+            // 3. Klienten-Pool füllen
+            document.getElementById('klienten-liste').innerHTML = (d.wunschtermineKlienten || []).map(k => 
+                `<div class="p-2 border-b text-xs">${k.name} - ${k.zeit}</div>`).join('');
         }
 
         function wocheWechseln(tage) {
