@@ -71,4 +71,96 @@
             try {
                 const res = await fetch('/api/planer/dashboard');
                 const d = await res.json();
-                const wRes = await
+                const wRes = await fetch('/api/planer/wuensche');
+                const wuensche = await wRes.json();
+                
+                const kwId = getKwId(aktuellerMontag);
+                const isFreigegeben = d.freigaben?.[kwId];
+                const btn = document.getElementById('btn-freigabe');
+                btn.innerText = isFreigegeben ? "Plan ist FREIGEGEBEN" : "Plan ist ENTWURF";
+                btn.className = `px-3 py-1 rounded text-sm font-semibold border ${isFreigegeben ? 'bg-green-600' : 'bg-orange-500'}`;
+                document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
+
+                document.getElementById('mitarbeiter-liste-sidebar').innerHTML = (d.mitarbeiterListe || []).map(m => `
+                    <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded border">
+                        <span>${m.name}</span>
+                        <div class="flex gap-1">
+                            <button onclick="mitarbeiterSortieren('${m.name}', 'up')" class="text-gray-500 px-1">▲</button>
+                            <button onclick="mitarbeiterSortieren('${m.name}', 'down')" class="text-gray-500 px-1">▼</button>
+                            <button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 font-bold px-2">✕</button>
+                        </div>
+                    </div>`).join('');
+                
+                document.getElementById('wunsch-liste-sidebar').innerHTML = (wuensche || []).map(w => `
+                    <div class="p-3 bg-yellow-50 rounded border border-yellow-200 mb-2">
+                        <p class="font-bold text-xs text-yellow-900">${w.mitarbeiter}</p>
+                        <p class="text-[10px] text-gray-600">${w.datum} | ${w.zeit || "---"}</p>
+                        <p class="text-[11px] font-medium text-blue-800 mt-1 italic">"${w.grund}"</p>
+                        <button onclick="wunschBestaetigen(${w.id})" class="bg-green-600 text-white w-full mt-2 py-1 rounded text-[10px] hover:bg-green-700">Als Termin übernehmen</button>
+                    </div>`).join('');
+
+                document.getElementById('termin-ma').innerHTML = (d.mitarbeiterListe || []).map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+
+                let tage = [];
+                for(let i=0; i<7; i++) {
+                    let t = new Date(aktuellerMontag);
+                    t.setUTCDate(t.getUTCDate() + i);
+                    tage.push(t.toISOString().split('T')[0]);
+                }
+
+                document.getElementById('table-header').innerHTML = '<th class="p-3 border">Mitarbeiter</th>' + 
+                    tage.map((t, i) => `<th class="p-3 border">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}<br>${t.split('-')[2]}.${t.split('-')[1]}</th>`).join('');
+
+                document.getElementById('matrix-body').innerHTML = (d.mitarbeiterListe || []).map(m => `
+                    <tr>
+                        <td class="p-3 border font-semibold text-sm">${m.name}</td>
+                        ${tage.map(t => {
+                            // Sortiere Termine nach Uhrzeit
+                            const termine = (d.termine || []).filter(x => x.mitarbeiter === m.name && x.datum === t)
+                                .sort((a,b) => (a.aktuell?.von || a.original.von).localeCompare(b.aktuell?.von || b.original.von));
+                            
+                            return `<td class="p-1 border h-20 align-top">
+                                ${termine.map(termin => {
+                                    let v = termin.hatAenderung ? termin.aktuell : (termin.original || {von: termin.von_uhrzeit || "00:00", bis: termin.bis_uhrzeit || "00:00"});
+                                    return `<div class="p-1 mb-1 rounded border text-[10px] ${termin.hatAenderung ? 'bg-orange-100' : 'bg-blue-50'}">
+                                        <b>${termin.kunde}</b><br>${v.von}-${v.bis}
+                                        <button onclick="terminBearbeiten(${termin.id}, '${termin.kunde}', '${v.von}', '${v.bis}')" class="text-blue-600 block mt-1 underline">✎ Bearbeiten</button>
+                                        ${termin.hatAenderung ? `<button onclick="bestaetigen(${termin.id})" class="text-green-700 block underline font-bold mt-1">✓ Bestätigen</button>` : ''}
+                                        <button onclick="terminLoeschen(${termin.id})" class="text-red-500 block mt-1">✕ Löschen</button>
+                                    </div>`;
+                                }).join('')}
+                            </td>`;
+                        }).join('')}
+                    </tr>`).join('');
+            } catch (e) { console.error("Ladefehler:", e); }
+        }
+
+        // Neue Funktion zum Bearbeiten
+        async function terminBearbeiten(id, alterKunde, alteVon, alteBis) {
+            const kunde = prompt("Kundenname:", alterKunde);
+            const von = prompt("Von Uhrzeit:", alteVon);
+            const bis = prompt("Bis Uhrzeit:", alteBis);
+            if (kunde && von && bis) {
+                await fetch('/api/planer/termin/bearbeiten', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ id, kunde, von_uhrzeit: von, bis_uhrzeit: bis })
+                });
+                ladeDashboard();
+            }
+        }
+
+        function wocheBlaettern(n) { aktuellerMontag.setUTCDate(aktuellerMontag.getUTCDate() + (n * 7)); ladeDashboard(); }
+        async function wunschBestaetigen(id) { await fetch('/api/planer/wunsch/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
+        async function bestaetigen(id) { await fetch('/api/planer/termin/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
+        async function terminAnlegen() { const t = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
+        async function mitarbeiterLoeschen(name) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); }
+        async function mitarbeiterHinzufuegen() { const name = prompt("Name:"); if(name) { await fetch('/api/planer/mitarbeiter/hinzufuegen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); ladeDashboard(); } }
+        async function mitarbeiterSortieren(name, richtung) { await fetch('/api/planer/mitarbeiter/sortieren', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, richtung }) }); ladeDashboard(); }
+        async function terminLoeschen(id) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); }
+        async function toggleFreigabe() { const kwId = getKwId(aktuellerMontag); const status = !document.getElementById('btn-freigabe').innerText.includes("FREI"); await fetch('/api/planer/freigabe', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ kwId, status }) }); ladeDashboard(); }
+        
+        ladeDashboard();
+    </script>
+</body>
+</html>
