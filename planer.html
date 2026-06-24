@@ -98,7 +98,16 @@
                         <div class="flex gap-1"><button onclick="mitarbeiterSortieren('${m.name}', 'up')">▲</button><button onclick="mitarbeiterSortieren('${m.name}', 'down')">▼</button><button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 px-2">✕</button></div>
                     </div>`).join('');
                 
-                const pool = (d.termine || []).filter(t => t.mitarbeiter === "Unbesetzt").sort((a,b) => (a.datum + a.original.von).localeCompare(b.datum + b.original.von));
+                // NEUER FILTER: Pool zeigt nur aktuelle Woche + nächste Woche an
+                const heute = new Date();
+                const endeNaechsteWoche = new Date(aktuellerMontag);
+                endeNaechsteWoche.setUTCDate(endeNaechsteWoche.getUTCDate() + 14); 
+
+                const pool = (d.termine || []).filter(t => {
+                    const terminDatum = new Date(t.datum);
+                    return t.mitarbeiter === "Unbesetzt" && terminDatum >= heute && terminDatum < endeNaechsteWoche;
+                }).sort((a,b) => (a.datum + a.original.von).localeCompare(b.datum + b.original.von));
+
                 document.getElementById('pool-liste').innerHTML = pool.map(t => `
                     <div onclick="window.open('edit-termin.html?id=${t.id}', '_blank')" class="p-2 bg-purple-50 rounded border text-[10px] cursor-pointer hover:bg-purple-100 transition-colors">
                         <b>${t.kunde}</b><br>${t.datum} (${t.original.von})
