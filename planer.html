@@ -17,7 +17,6 @@
         
         <div class="bg-white p-6 rounded-b-xl shadow-lg grid grid-cols-1 md:grid-cols-4 gap-8">
             <div class="md:col-span-1 border-r pr-4">
-                
                 <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2 cursor-pointer flex justify-between" onclick="document.getElementById('mitarbeiter-bereich').classList.toggle('hidden')">
                     Mitarbeiter <span>▼</span>
                 </h2>
@@ -26,13 +25,15 @@
                     <div id="mitarbeiter-liste-sidebar" class="space-y-2 mb-6"></div>
                 </div>
                 
+                <h2 class="text-lg font-bold mt-8 mb-4 text-orange-800 border-b pb-2 cursor-pointer" onclick="document.getElementById('wunsch-bereich').classList.toggle('hidden')">
+                    Mitarbeiter-Wünsche <span>▼</span>
+                </h2>
+                <div id="wunsch-bereich" class="space-y-2 mb-6"></div>
+                
                 <h2 class="text-lg font-bold mt-8 mb-4 text-purple-800 border-b pb-2">Terminpool (Unbesetzt)</h2>
                 <div id="pool-liste" class="space-y-2 mb-6 text-sm"></div>
 
-                <button onclick="window.open('termine-zukunft.html', '_blank')" 
-                        class="w-full bg-blue-800 text-white py-2 rounded font-bold mt-2 hover:bg-blue-900 shadow-sm transition-all">
-                    📅 Alle Zukunfts-Termine
-                </button>
+                <button onclick="window.open('termine-zukunft.html', '_blank')" class="w-full bg-blue-800 text-white py-2 rounded font-bold mt-2 hover:bg-blue-900">📅 Alle Zukunfts-Termine</button>
 
                 <h2 class="text-lg font-bold mt-8 mb-4 text-green-800 border-b pb-2">Neuer Termin</h2>
                 <div class="bg-gray-50 p-3 rounded border text-sm">
@@ -82,14 +83,24 @@
 
         async function ladeDashboard() {
             try {
-                const res = await fetch('/api/planer/dashboard');
+                // Daten und Wünsche parallel laden
+                const [res, wunschRes] = await Promise.all([fetch('/api/planer/dashboard'), fetch('/api/planer/wuensche')]);
                 const d = await res.json();
+                const wuensche = await wunschRes.json();
                 
+                // --- WÜNSCHE ANZEIGEN ---
+                const wunschContainer = document.getElementById('wunsch-bereich');
+                wunschContainer.innerHTML = wuensche.length === 0 ? "<p class='text-xs text-gray-400 p-2'>Keine offenen Wünsche.</p>" : wuensche.map(w => `
+                    <div class="p-2 bg-orange-50 border border-orange-200 rounded text-xs">
+                        <b>${w.mitarbeiter}</b> (${w.datum})<br><span class="text-orange-800">${w.grund}</span>
+                        <div class="mt-2 flex gap-1"><button onclick="bestaetigeWunsch(${w.id})" class="bg-green-600 text-white px-2 py-1 rounded">Ok</button><button onclick="loescheWunsch(${w.id})" class="bg-red-600 text-white px-2 py-1 rounded">X</button></div>
+                    </div>`).join('');
+
+                // --- RESTLICHE LOGIK ---
                 const kwId = getKwId(aktuellerMontag);
                 const isFreigegeben = d.freigaben?.[kwId];
-                const btn = document.getElementById('btn-freigabe');
-                btn.innerText = isFreigegeben ? "Plan ist FREIGEGEBEN" : "Plan ist ENTWURF";
-                btn.className = `px-3 py-1 rounded text-sm font-semibold border ${isFreigegeben ? 'bg-green-600' : 'bg-orange-500'}`;
+                document.getElementById('btn-freigabe').innerText = isFreigegeben ? "Plan ist FREIGEGEBEN" : "Plan ist ENTWURF";
+                document.getElementById('btn-freigabe').className = `px-3 py-1 rounded text-sm font-semibold border ${isFreigegeben ? 'bg-green-600' : 'bg-orange-500'}`;
                 document.getElementById('kw-titel').innerText = `KW ${kwId.split('-')[1]}`;
 
                 document.getElementById('mitarbeiter-liste-sidebar').innerHTML = (d.mitarbeiterListe || []).map(m => `
@@ -98,7 +109,6 @@
                         <div class="flex gap-1"><button onclick="mitarbeiterSortieren('${m.name}', 'up')">▲</button><button onclick="mitarbeiterSortieren('${m.name}', 'down')">▼</button><button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 px-2">✕</button></div>
                     </div>`).join('');
                 
-                // NEUER FILTER: Pool zeigt nur aktuelle Woche + nächste Woche an
                 const heute = new Date();
                 const endeNaechsteWoche = new Date(aktuellerMontag);
                 endeNaechsteWoche.setUTCDate(endeNaechsteWoche.getUTCDate() + 14); 
@@ -111,7 +121,6 @@
                 document.getElementById('pool-liste').innerHTML = pool.map(t => `
                     <div onclick="window.open('edit-termin.html?id=${t.id}', '_blank')" class="p-2 bg-purple-50 rounded border text-[10px] cursor-pointer hover:bg-purple-100 transition-colors">
                         <b>${t.kunde}</b><br>${t.datum} (${t.original.von})
-                        <div class="text-purple-700 underline mt-1">Bearbeiten / Zuweisen</div>
                     </div>`).join('');
 
                 document.getElementById('termin-ma').innerHTML = (d.mitarbeiterListe || []).map(m => `<option value="${m.name}">${m.name}</option>`).join('');
@@ -132,13 +141,14 @@
             } catch (e) { console.error("Ladefehler:", e); }
         }
 
+        async function bestaetigeWunsch(id) { await fetch('/api/planer/wunsch/bestaetigen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
+        async function loescheWunsch(id) { await fetch('/api/planer/wunsch/loeschen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id }) }); ladeDashboard(); }
         async function terminInPool() { const t = { kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von: document.getElementById('termin-von').value, bis: document.getElementById('termin-bis').value }; if(!t.kunde || !t.datum) { alert("Bitte Kunde und Datum angeben!"); return; } await fetch('/api/planer/termin/pool', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
         function wocheBlaettern(n) { aktuellerMontag.setUTCDate(aktuellerMontag.getUTCDate() + (n * 7)); ladeDashboard(); }
         async function terminAnlegen() { const t = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
         async function mitarbeiterLoeschen(name) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); }
         async function mitarbeiterHinzufuegen() { const name = prompt("Name:"); if(name) { await fetch('/api/planer/mitarbeiter/hinzufuegen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name }) }); ladeDashboard(); } }
         async function mitarbeiterSortieren(name, richtung) { await fetch('/api/planer/mitarbeiter/sortieren', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, richtung }) }); ladeDashboard(); }
-        async function terminLoeschen(id) { await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' }); ladeDashboard(); }
         async function toggleFreigabe() { const kwId = getKwId(aktuellerMontag); const status = !document.getElementById('btn-freigabe').innerText.includes("FREI"); await fetch('/api/planer/freigabe', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ kwId, status }) }); ladeDashboard(); }
         
         ladeDashboard();
