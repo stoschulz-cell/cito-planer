@@ -93,7 +93,8 @@
                         <div class="flex gap-1"><button onclick="mitarbeiterSortieren('${m.name}', 'up')">▲</button><button onclick="mitarbeiterSortieren('${m.name}', 'down')">▼</button><button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 px-2">✕</button></div>
                     </div>`).join('');
                 
-                const pool = (d.termine || []).filter(t => t.mitarbeiter === "Unbesetzt");
+                // Pool sortieren nach Datum und Uhrzeit
+                const pool = (d.termine || []).filter(t => t.mitarbeiter === "Unbesetzt").sort((a,b) => (a.datum + a.original.von).localeCompare(b.datum + b.original.von));
                 document.getElementById('pool-liste').innerHTML = pool.map(t => `
                     <div class="p-2 bg-purple-50 rounded border text-[10px]">
                         <b>${t.kunde}</b><br>${t.datum} (${t.original.von})
@@ -114,26 +115,14 @@
                             return `<td class="p-1 border h-20 align-top">${termine.map(termin => `
                                 <div class="p-1 mb-1 rounded border text-[10px] ${termin.hatAenderung ? 'bg-orange-100' : 'bg-blue-50'}">
                                     <b>${termin.kunde}</b><br>${termin.aktuell?.von || termin.original.von}-${termin.aktuell?.bis || termin.original.bis}
-                                    <button onclick="terminBearbeiten(${termin.id}, '${termin.kunde}', '${termin.original.von}', '${termin.original.bis}')" class="text-blue-600 block underline">✎</button>
+                                    <button onclick="window.open('edit-termin.html?id=${termin.id}', '_blank')" class="text-blue-600 block underline font-bold">Bearbeiten</button>
                                 </div>`).join('')}</td>`;
                         }).join('')}</tr>`).join('');
             } catch (e) { console.error("Ladefehler:", e); }
         }
 
-        async function terminInPool() { 
-            const t = { 
-                kunde: document.getElementById('termin-kunde').value, 
-                datum: document.getElementById('termin-datum').value, 
-                von: document.getElementById('termin-von').value, 
-                bis: document.getElementById('termin-bis').value 
-            }; 
-            if(!t.kunde || !t.datum) { alert("Bitte Kunde und Datum angeben!"); return; }
-            await fetch('/api/planer/termin/pool', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); 
-            ladeDashboard(); 
-        }
-
+        async function terminInPool() { const t = { kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von: document.getElementById('termin-von').value, bis: document.getElementById('termin-bis').value }; if(!t.kunde || !t.datum) { alert("Bitte Kunde und Datum angeben!"); return; } await fetch('/api/planer/termin/pool', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
         async function terminZuweisen(id) { const mitarbeiter = prompt("Mitarbeitername:"); if(mitarbeiter) { await fetch('/api/planer/termin/zuweisen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id, mitarbeiter }) }); ladeDashboard(); } }
-        async function terminBearbeiten(id, kunde, von, bis) { const k = prompt("Kunde:", kunde); const v = prompt("Von:", von); const b = prompt("Bis:", bis); if(k && v && b) { await fetch('/api/planer/termin/bearbeiten', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id, kunde: k, von_uhrzeit: v, bis_uhrzeit: b }) }); ladeDashboard(); } }
         function wocheBlaettern(n) { aktuellerMontag.setUTCDate(aktuellerMontag.getUTCDate() + (n * 7)); ladeDashboard(); }
         async function terminAnlegen() { const t = { mitarbeiter: document.getElementById('termin-ma').value, kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von_uhrzeit: document.getElementById('termin-von').value, bis_uhrzeit: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
         async function mitarbeiterLoeschen(name) { await fetch(`/api/planer/mitarbeiter/${name}`, { method: 'DELETE' }); ladeDashboard(); }
