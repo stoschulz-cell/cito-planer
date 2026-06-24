@@ -88,7 +88,7 @@ app.post('/api/planer/wunsch/bestaetigen', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- TERMIN LOGIK (INKLUSIVE POOL & ZUWEISEN) ---
+// --- TERMIN LOGIK ---
 app.post('/api/planer/termin/pool', async (req, res) => {
     try {
         const { kunde, datum, von, bis } = req.body;
@@ -117,13 +117,15 @@ app.post('/api/planer/termin/zuweisen', async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Fehler beim Zuweisen" }); }
 });
 
+// KORRIGIERTE ROUTE: Speichert jetzt auch den Mitarbeiter
 app.post('/api/planer/termin/bearbeiten', async (req, res) => {
     try {
-        const { id, kunde, von_uhrzeit, bis_uhrzeit } = req.body;
+        const { id, kunde, mitarbeiter, von_uhrzeit, bis_uhrzeit } = req.body;
         await db.collection('daten').updateOne(
             { id: "main", "termine.id": Number(id) },
             { $set: { 
                 "termine.$.kunde": kunde, 
+                "termine.$.mitarbeiter": mitarbeiter,
                 "termine.$.original.von": von_uhrzeit, 
                 "termine.$.original.bis": bis_uhrzeit,
                 "termine.$.aktuell.von": von_uhrzeit, 
