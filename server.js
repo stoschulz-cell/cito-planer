@@ -88,16 +88,33 @@ app.post('/api/planer/wunsch/bestaetigen', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- TERMIN LOGIK ---
-app.post('/api/mitarbeiter/verschieben-als-aenderung', async (req, res) => {
+// --- TERMIN LOGIK (INKLUSIVE POOL & ZUWEISEN) ---
+app.post('/api/planer/termin/pool', async (req, res) => {
     try {
-        const { id, neuesDatum, neueVon, neueBis } = req.body;
+        const { kunde, datum, von, bis } = req.body;
+        const neuerTermin = { 
+            id: Date.now(), 
+            mitarbeiter: "Unbesetzt", 
+            kunde, 
+            datum, 
+            original: { von, bis }, 
+            aktuell: { von, bis }, 
+            hatAenderung: false 
+        };
+        await db.collection('daten').updateOne({ id: "main" }, { $push: { termine: neuerTermin } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Fehler beim Anlegen im Pool" }); }
+});
+
+app.post('/api/planer/termin/zuweisen', async (req, res) => {
+    try {
+        const { id, mitarbeiter } = req.body;
         await db.collection('daten').updateOne(
             { id: "main", "termine.id": Number(id) },
-            { $set: { "termine.$.aktuell": { von: neueVon, bis: neueBis }, "termine.$.datum": neuesDatum, "termine.$.hatAenderung": true } }
+            { $set: { "termine.$.mitarbeiter": mitarbeiter } }
         );
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Fehler beim Verschieben" }); }
+    } catch (e) { res.status(500).json({ error: "Fehler beim Zuweisen" }); }
 });
 
 app.post('/api/planer/termin/bearbeiten', async (req, res) => {
