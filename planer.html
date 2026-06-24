@@ -17,9 +17,14 @@
         
         <div class="bg-white p-6 rounded-b-xl shadow-lg grid grid-cols-1 md:grid-cols-4 gap-8">
             <div class="md:col-span-1 border-r pr-4">
-                <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2">Mitarbeiter</h2>
-                <button onclick="mitarbeiterHinzufuegen()" class="bg-blue-600 text-white w-full py-1 rounded text-sm mb-2 hover:bg-blue-700 font-bold">+ Mitarbeiter hinzufügen</button>
-                <div id="mitarbeiter-liste-sidebar" class="space-y-2 mb-6"></div>
+                
+                <h2 class="text-lg font-bold mb-4 text-blue-800 border-b pb-2 cursor-pointer flex justify-between" onclick="document.getElementById('mitarbeiter-bereich').classList.toggle('hidden')">
+                    Mitarbeiter <span>▼</span>
+                </h2>
+                <div id="mitarbeiter-bereich">
+                    <button onclick="mitarbeiterHinzufuegen()" class="bg-blue-600 text-white w-full py-1 rounded text-sm mb-2 hover:bg-blue-700 font-bold">+ Hinzufügen</button>
+                    <div id="mitarbeiter-liste-sidebar" class="space-y-2 mb-6"></div>
+                </div>
                 
                 <h2 class="text-lg font-bold mt-8 mb-4 text-purple-800 border-b pb-2">Terminpool (Unbesetzt)</h2>
                 <div id="pool-liste" class="space-y-2 mb-6 text-sm"></div>
@@ -115,7 +120,18 @@
             } catch (e) { console.error("Ladefehler:", e); }
         }
 
-        async function terminInPool() { const t = { kunde: document.getElementById('termin-kunde').value, datum: document.getElementById('termin-datum').value, von: document.getElementById('termin-von').value, bis: document.getElementById('termin-bis').value }; await fetch('/api/planer/termin/pool', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); ladeDashboard(); }
+        async function terminInPool() { 
+            const t = { 
+                kunde: document.getElementById('termin-kunde').value, 
+                datum: document.getElementById('termin-datum').value, 
+                von: document.getElementById('termin-von').value, 
+                bis: document.getElementById('termin-bis').value 
+            }; 
+            if(!t.kunde || !t.datum) { alert("Bitte Kunde und Datum angeben!"); return; }
+            await fetch('/api/planer/termin/pool', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(t) }); 
+            ladeDashboard(); 
+        }
+
         async function terminZuweisen(id) { const mitarbeiter = prompt("Mitarbeitername:"); if(mitarbeiter) { await fetch('/api/planer/termin/zuweisen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id, mitarbeiter }) }); ladeDashboard(); } }
         async function terminBearbeiten(id, kunde, von, bis) { const k = prompt("Kunde:", kunde); const v = prompt("Von:", von); const b = prompt("Bis:", bis); if(k && v && b) { await fetch('/api/planer/termin/bearbeiten', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id, kunde: k, von_uhrzeit: v, bis_uhrzeit: b }) }); ladeDashboard(); } }
         function wocheBlaettern(n) { aktuellerMontag.setUTCDate(aktuellerMontag.getUTCDate() + (n * 7)); ladeDashboard(); }
