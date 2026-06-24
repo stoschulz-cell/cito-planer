@@ -88,6 +88,15 @@ app.post('/api/planer/wunsch/bestaetigen', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// NEUE ROUTE: Wunsch löschen
+app.post('/api/planer/wunsch/loeschen', async (req, res) => {
+    try {
+        const { id } = req.body;
+        await db.collection('daten').updateOne({ id: "main" }, { $pull: { wunschfreiListe: { id: Number(id) } } });
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Fehler beim Löschen" }); }
+});
+
 // --- TERMIN LOGIK ---
 app.post('/api/planer/termin/pool', async (req, res) => {
     try {
@@ -117,7 +126,6 @@ app.post('/api/planer/termin/zuweisen', async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Fehler beim Zuweisen" }); }
 });
 
-// KORRIGIERTE ROUTE: Speichert jetzt auch den Mitarbeiter
 app.post('/api/planer/termin/bearbeiten', async (req, res) => {
     try {
         const { id, kunde, mitarbeiter, von_uhrzeit, bis_uhrzeit } = req.body;
