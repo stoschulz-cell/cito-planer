@@ -30,9 +30,8 @@
             </div>
         </div>
 
-        <div class="mt-8 flex flex-col gap-3">
+        <div class="mt-8 flex gap-3">
             <button onclick="speichern()" class="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">Speichern</button>
-            <button onclick="terminLoeschen()" class="w-full bg-red-100 text-red-600 py-2 rounded font-bold hover:bg-red-200">Termin löschen</button>
             <button onclick="window.close()" class="w-full bg-gray-300 text-gray-700 py-2 rounded font-bold hover:bg-gray-400">Abbrechen</button>
         </div>
     </div>
@@ -52,19 +51,19 @@
                     document.getElementById('edit-von').value = termin.aktuell?.von || termin.original.von;
                     document.getElementById('edit-bis').value = termin.aktuell?.bis || termin.original.bis;
                     
-                    // Mitarbeiter-Liste füllen
+                    // Mitarbeiter-Liste laden und den aktuellen Mitarbeiter/Unbesetzt vorwählen
                     const maSelect = document.getElementById('edit-ma');
                     maSelect.innerHTML = `<option value="Unbesetzt">Unbesetzt</option>` + 
                         data.mitarbeiterListe.map(m => `<option value="${m.name}" ${termin.mitarbeiter === m.name ? 'selected' : ''}>${m.name}</option>`).join('');
                 }
-            } catch (e) { console.error("Fehler beim Laden:", e); }
+            } catch (e) { console.error("Fehler:", e); }
         }
 
         async function speichern() {
             const payload = {
                 id: id,
                 kunde: document.getElementById('edit-kunde').value,
-                mitarbeiter: document.getElementById('edit-ma').value,
+                mitarbeiter: document.getElementById('edit-ma').value, // WICHTIG: Das fehlte!
                 von_uhrzeit: document.getElementById('edit-von').value,
                 bis_uhrzeit: document.getElementById('edit-bis').value
             };
@@ -79,14 +78,6 @@
                 if (window.opener && !window.opener.closed) window.opener.ladeDashboard();
                 window.close();
             } else { alert("Fehler beim Speichern!"); }
-        }
-
-        async function terminLoeschen() {
-            if(confirm("Diesen Termin wirklich löschen?")) {
-                await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' });
-                if (window.opener && !window.opener.closed) window.opener.ladeDashboard();
-                window.close();
-            }
         }
 
         ladeTermin();
