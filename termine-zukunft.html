@@ -2,34 +2,45 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Zukünftige Termine</title>
+    <title>Offene Zukunfts-Termine</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 p-8">
     <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-lg">
-        <h2 class="text-2xl font-bold mb-6 text-blue-900 border-b pb-2">Alle Zukunfts-Termine</h2>
+        <h2 class="text-2xl font-bold mb-6 text-blue-900 border-b pb-2">Offene Termine (Zukunft)</h2>
         <div id="zukunft-liste" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             </div>
     </div>
 
     <script>
         async function ladeZukunft() {
-            const res = await fetch('/api/planer/dashboard');
-            const data = await res.json();
-            const heute = new Date().toISOString().split('T')[0];
+            try {
+                const res = await fetch('/api/planer/dashboard');
+                const data = await res.json();
+                const heute = new Date().toISOString().split('T')[0];
 
-            // Filter: Datum >= Heute
-            const zukunft = (data.termine || []).filter(t => t.datum >= heute).sort((a,b) => a.datum.localeCompare(b.datum));
+                // NEUER FILTER: 
+                // 1. Datum muss heute oder später sein
+                // 2. Mitarbeiter muss "Unbesetzt" sein
+                const zukunft = (data.termine || []).filter(t => t.datum >= heute && t.mitarbeiter === "Unbesetzt")
+                                                  .sort((a,b) => a.datum.localeCompare(b.datum));
 
-            document.getElementById('zukunft-liste').innerHTML = zukunft.map(t => `
-                <div class="p-4 border rounded-lg bg-white shadow-sm hover:border-blue-400">
-                    <div class="font-bold text-lg">${t.kunde}</div>
-                    <div class="text-sm text-gray-600">Datum: ${t.datum} | Zeit: ${t.original.von}</div>
-                    <div class="text-sm font-semibold mt-1 text-blue-600">MA: ${t.mitarbeiter}</div>
-                    <button onclick="window.open('edit-termin.html?id=${t.id}', '_blank')" 
-                            class="mt-3 w-full bg-blue-600 text-white py-1 rounded text-sm font-bold">Bearbeiten / Zuordnen</button>
-                </div>
-            `).join('');
+                if (zukunft.length === 0) {
+                    document.getElementById('zukunft-liste').innerHTML = "<p class='p-4 text-gray-500'>Keine offenen Termine in der Zukunft.</p>";
+                    return;
+                }
+
+                document.getElementById('zukunft-liste').innerHTML = zukunft.map(t => `
+                    <div class="p-4 border rounded-lg bg-purple-50 shadow-sm border-purple-200">
+                        <div class="font-bold text-lg">${t.kunde}</div>
+                        <div class="text-sm text-gray-700">Datum: ${t.datum} | Zeit: ${t.original.von}</div>
+                        <div class="mt-3 flex gap-2">
+                            <button onclick="window.open('edit-termin.html?id=${t.id}', '_blank')" 
+                                    class="w-full bg-blue-600 text-white py-1 rounded text-sm font-bold">Zuordnen</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) { console.error("Fehler:", e); }
         }
         ladeZukunft();
     </script>
