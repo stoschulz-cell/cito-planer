@@ -15,49 +15,56 @@
                 <input type="text" id="edit-kunde" class="w-full border p-2 rounded">
             </div>
             <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Von</label>
-                <input type="time" id="edit-von" class="w-full border p-2 rounded">
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Mitarbeiter</label>
+                <select id="edit-ma" class="w-full border p-2 rounded"></select>
             </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Bis</label>
-                <input type="time" id="edit-bis" class="w-full border p-2 rounded">
+            <div class="flex gap-4">
+                <div class="w-1/2">
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Von</label>
+                    <input type="time" id="edit-von" class="w-full border p-2 rounded">
+                </div>
+                <div class="w-1/2">
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Bis</label>
+                    <input type="time" id="edit-bis" class="w-full border p-2 rounded">
+                </div>
             </div>
         </div>
 
-        <div class="mt-8 flex gap-3">
+        <div class="mt-8 flex flex-col gap-3">
             <button onclick="speichern()" class="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">Speichern</button>
+            <button onclick="terminLoeschen()" class="w-full bg-red-100 text-red-600 py-2 rounded font-bold hover:bg-red-200">Termin löschen</button>
             <button onclick="window.close()" class="w-full bg-gray-300 text-gray-700 py-2 rounded font-bold hover:bg-gray-400">Abbrechen</button>
         </div>
     </div>
 
     <script>
-        // ID aus der URL lesen (z.B. edit-termin.html?id=123)
         const urlParams = new URLSearchParams(window.location.search);
         const id = urlParams.get('id');
 
-        // Daten laden
         async function ladeTermin() {
             try {
                 const res = await fetch('/api/planer/dashboard');
                 const data = await res.json();
-                // Suche den passenden Termin aus der Liste
                 const termin = data.termine.find(t => t.id == id);
                 
                 if(termin) {
                     document.getElementById('edit-kunde').value = termin.kunde;
-                    // Nimmt den aktuellen Wert falls vorhanden, sonst den originalen
                     document.getElementById('edit-von').value = termin.aktuell?.von || termin.original.von;
                     document.getElementById('edit-bis').value = termin.aktuell?.bis || termin.original.bis;
+                    
+                    // Mitarbeiter-Liste füllen
+                    const maSelect = document.getElementById('edit-ma');
+                    maSelect.innerHTML = `<option value="Unbesetzt">Unbesetzt</option>` + 
+                        data.mitarbeiterListe.map(m => `<option value="${m.name}" ${termin.mitarbeiter === m.name ? 'selected' : ''}>${m.name}</option>`).join('');
                 }
-            } catch (e) {
-                console.error("Fehler beim Laden:", e);
-            }
+            } catch (e) { console.error("Fehler beim Laden:", e); }
         }
 
         async function speichern() {
             const payload = {
                 id: id,
                 kunde: document.getElementById('edit-kunde').value,
+                mitarbeiter: document.getElementById('edit-ma').value,
                 von_uhrzeit: document.getElementById('edit-von').value,
                 bis_uhrzeit: document.getElementById('edit-bis').value
             };
@@ -69,13 +76,16 @@
             });
 
             if (response.ok) {
-                // Hauptseite aktualisieren, falls noch offen
-                if (window.opener && !window.opener.closed) {
-                    window.opener.ladeDashboard();
-                }
-                window.close(); // Tab schließen
-            } else {
-                alert("Fehler beim Speichern!");
+                if (window.opener && !window.opener.closed) window.opener.ladeDashboard();
+                window.close();
+            } else { alert("Fehler beim Speichern!"); }
+        }
+
+        async function terminLoeschen() {
+            if(confirm("Diesen Termin wirklich löschen?")) {
+                await fetch(`/api/planer/termin/${id}`, { method: 'DELETE' });
+                if (window.opener && !window.opener.closed) window.opener.ladeDashboard();
+                window.close();
             }
         }
 
