@@ -29,6 +29,11 @@
                 <h2 class="text-lg font-bold mt-8 mb-4 text-purple-800 border-b pb-2">Terminpool (Unbesetzt)</h2>
                 <div id="pool-liste" class="space-y-2 mb-6 text-sm"></div>
 
+                <button onclick="window.open('termine-zukunft.html', '_blank')" 
+                        class="w-full bg-blue-800 text-white py-2 rounded font-bold mt-2 hover:bg-blue-900 shadow-sm transition-all">
+                    📅 Alle Zukunfts-Termine
+                </button>
+
                 <h2 class="text-lg font-bold mt-8 mb-4 text-green-800 border-b pb-2">Neuer Termin</h2>
                 <div class="bg-gray-50 p-3 rounded border text-sm">
                     <select id="termin-ma" class="w-full border p-2 mb-2 rounded"></select>
@@ -93,7 +98,6 @@
                         <div class="flex gap-1"><button onclick="mitarbeiterSortieren('${m.name}', 'up')">▲</button><button onclick="mitarbeiterSortieren('${m.name}', 'down')">▼</button><button onclick="mitarbeiterLoeschen('${m.name}')" class="text-red-500 px-2">✕</button></div>
                     </div>`).join('');
                 
-                // Pool sortiert anzeigen und klickbar machen
                 const pool = (d.termine || []).filter(t => t.mitarbeiter === "Unbesetzt").sort((a,b) => (a.datum + a.original.von).localeCompare(b.datum + b.original.von));
                 document.getElementById('pool-liste').innerHTML = pool.map(t => `
                     <div onclick="window.open('edit-termin.html?id=${t.id}', '_blank')" class="p-2 bg-purple-50 rounded border text-[10px] cursor-pointer hover:bg-purple-100 transition-colors">
